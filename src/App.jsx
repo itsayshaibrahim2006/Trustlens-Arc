@@ -1,4 +1,5 @@
 import React from 'react';
+import Navbar from './components/Navbar.jsx';
 import HeroSection from './components/HeroSection.jsx';
 import BiometricDeepfakes from './components/video_showcase/BiometricDeepfakes.jsx';
 import ScanBayVehicle from './components/video_showcase/ScanBayVehicle.jsx';
@@ -7,7 +8,7 @@ import VideoFooter from './components/video_showcase/VideoFooter.jsx';
 
 function App() {
   const handleScrollToFeatures = () => {
-    const el = document.getElementById('scanbay-section') || document.getElementById('deepfakes-section');
+    const el = document.getElementById('deepfakes-section') || document.getElementById('scanbay-section');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
     }
@@ -16,6 +17,9 @@ function App() {
   return (
     <div className="min-h-screen bg-[#070B13] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200">
       
+      {/* Top Floating Glass Navigation Bar (Updated for Recent Forensic Showcases) */}
+      <Navbar />
+
       {/* 1. Cinematic Scroll-Linked Hero Section (Original 240-Frame Corridor & Command Center Canvas) */}
       <HeroSection onEnterDashboard={handleScrollToFeatures} />
 

@@ -31,7 +31,7 @@ export default function VideoFooter() {
   };
 
   return (
-    <footer className="relative bg-[#04070D] border-t border-cyan-500/20 text-slate-300 pt-20 pb-12 overflow-hidden select-none">
+    <footer id="footer-section" className="relative bg-[#04070D] border-t border-cyan-500/20 text-slate-300 pt-20 pb-12 overflow-hidden select-none">
       
       {/* Background cyber radial glow */}
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[350px] bg-cyan-600/5 rounded-full blur-[140px] pointer-events-none" />
