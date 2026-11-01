@@ -360,9 +360,9 @@ const INITIAL_RADAR_FEED = [
   }
 ];
 
-export default function TrustLensArc() {
+export default function TrustLensArc({ externalPresetKey }) {
   // Global States
-  const [activePresetKey, setActivePresetKey] = useState('JOB_SCAM');
+  const [activePresetKey, setActivePresetKey] = useState(externalPresetKey || 'JOB_SCAM');
   const [activeFormat, setActiveFormat] = useState('pdf'); // 'image' | 'pdf' | 'url' | 'text'
   const [customText, setCustomText] = useState('');
   const [customUrl, setCustomUrl] = useState('');
@@ -392,6 +392,13 @@ export default function TrustLensArc() {
   const currentData = useMemo(() => {
     return PRESETS[activePresetKey] || PRESETS.JOB_SCAM;
   }, [activePresetKey]);
+
+  // Synchronize external preset from Sentinel Hub or Bento Grid
+  useEffect(() => {
+    if (externalPresetKey && PRESETS[externalPresetKey]) {
+      handleSelectPreset(externalPresetKey);
+    }
+  }, [externalPresetKey]);
 
   // Toast auto-dismiss
   useEffect(() => {
@@ -532,13 +539,17 @@ Submitted by TrustLens Arc Multi-Modal Verification Gateway.`;
           
           {/* Logo & Platform Name */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-slate-900 border border-blue-500/40 flex items-center justify-center shadow-lg shadow-blue-500/10">
-              <Shield className="w-5 h-5 text-blue-400 stroke-[2.2]" />
+            <div className="relative w-10 h-10 rounded-xl bg-slate-900/80 border border-cyan-400/30 flex items-center justify-center shadow-lg shadow-cyan-500/15 overflow-hidden p-0.5">
+              <img 
+                src="/trustlens_mark_transparent.png" 
+                alt="TrustLens Arc Logo" 
+                className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(34,211,238,0.5)]" 
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg tracking-tight text-white flex items-center gap-1.5">
-                  TrustLens <span className="text-blue-400">Arc</span>
+                <span className="font-bold text-lg tracking-tight text-white flex items-center gap-1.5 font-sans">
+                  TrustLens <span className="bg-gradient-to-r from-cyan-400 to-teal-300 bg-clip-text text-transparent font-extrabold">Arc</span>
                 </span>
                 <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-blue-950/80 border border-blue-800 text-blue-300">
                   v2.4 Core
