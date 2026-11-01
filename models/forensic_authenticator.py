@@ -665,3 +665,4 @@ class GoogleJobScamAndCVAuthenticator:
             evidence.append(f"Parsed {len(parsed_spans)} valid chronological timeline spans with no contradictions.")
 
         return max(-20, score), evidence
+

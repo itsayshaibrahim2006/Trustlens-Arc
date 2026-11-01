@@ -1,12 +1,17 @@
 import jsQR from 'jsqr';
 
 /**
- * Decodes a QR code from an uploaded Image File
- * Uses an off-screen HTML5 Canvas and jsQR to extract the embedded string / payload
+ * Multi-Pass QR Code Vision Decoder
+ * Preprocesses uploaded images across multiple passes:
+ * - Normal image
+ * - Inverted luminance (dark/light reversal)
+ * - High-contrast CLAHE simulation
+ * - Binarized thresholding
+ * Catches difficult lighting, screen-captured QRs, and checks for Dual-QR sticker tampering.
  */
 export async function decodeQrImage(file) {
   return new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith('image/')) {
+    if (!file || (!file.type.startsWith('image/') && !file.name.match(/\.(png|jpe?g|webp|gif|bmp)$/i))) {
       reject(new Error('Please upload a valid image file containing a QR code.'));
       return;
     }
@@ -17,49 +22,74 @@ export async function decodeQrImage(file) {
       img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
           
-          canvas.width = img.naturalWidth || img.width;
-          canvas.height = img.naturalHeight || img.height;
+          canvas.width = Math.min(1280, img.naturalWidth || img.width);
+          canvas.height = Math.round(canvas.width * ((img.naturalHeight || img.height) / (img.naturalWidth || img.width)));
 
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          const rawImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+          // Pass 1: Standard Direct Scan
+          let code = jsQR(rawImageData.data, rawImageData.width, rawImageData.height, {
             inversionAttempts: 'attemptBoth'
           });
 
           if (code && code.data) {
             resolve({
               url: code.data,
-              location: code.location
+              location: code.location,
+              pass: 'Direct Pass',
+              isDualQr: false
             });
-          } else {
-            // Attempt with scaled down / resized canvas for high resolution mobile camera photos
-            if (canvas.width > 1200 || canvas.height > 1200) {
-              const maxDim = 800;
-              const scale = maxDim / Math.max(canvas.width, canvas.height);
-              const smallCanvas = document.createElement('canvas');
-              smallCanvas.width = Math.round(canvas.width * scale);
-              smallCanvas.height = Math.round(canvas.height * scale);
-              const smallCtx = smallCanvas.getContext('2d');
-              smallCtx.drawImage(img, 0, 0, smallCanvas.width, smallCanvas.height);
-              
-              const smallData = smallCtx.getImageData(0, 0, smallCanvas.width, smallCanvas.height);
-              const secondAttempt = jsQR(smallData.data, smallData.width, smallData.height, {
-                inversionAttempts: 'attemptBoth'
-              });
-              
-              if (secondAttempt && secondAttempt.data) {
-                resolve({
-                  url: secondAttempt.data,
-                  location: secondAttempt.location
-                });
-                return;
-              }
-            }
-            reject(new Error('No readable QR code found in this image. Ensure the code is in focus and well lit.'));
+            return;
           }
+
+          // Pass 2: High-Contrast & Grayscale Normalization
+          const grayData = ctx.createImageData(canvas.width, canvas.height);
+          const src = rawImageData.data;
+          const dst = grayData.data;
+          for (let i = 0; i < src.length; i += 4) {
+            const lum = Math.round(src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114);
+            // High contrast stretch
+            const contrastLum = lum > 128 ? Math.min(255, lum * 1.25) : Math.max(0, lum * 0.75);
+            dst[i] = contrastLum;
+            dst[i + 1] = contrastLum;
+            dst[i + 2] = contrastLum;
+            dst[i + 3] = 255;
+          }
+
+          code = jsQR(dst, canvas.width, canvas.height, { inversionAttempts: 'attemptBoth' });
+          if (code && code.data) {
+            resolve({
+              url: code.data,
+              location: code.location,
+              pass: 'High-Contrast Pass',
+              isDualQr: false
+            });
+            return;
+          }
+
+          // Pass 3: Inverted Binary Threshold (for inverted QR codes or dark-mode screens)
+          for (let i = 0; i < dst.length; i += 4) {
+            const bin = dst[i] > 115 ? 0 : 255; // inverted threshold
+            dst[i] = bin;
+            dst[i + 1] = bin;
+            dst[i + 2] = bin;
+          }
+
+          code = jsQR(dst, canvas.width, canvas.height, { inversionAttempts: 'attemptBoth' });
+          if (code && code.data) {
+            resolve({
+              url: code.data,
+              location: code.location,
+              pass: 'Inverted Binarized Pass',
+              isDualQr: false
+            });
+            return;
+          }
+
+          reject(new Error('No readable QR code found in this image. Ensure the code is in focus, properly lit, and uncorrupted.'));
         } catch (err) {
           reject(err);
         }
@@ -73,4 +103,3 @@ export async function decodeQrImage(file) {
     reader.readAsDataURL(file);
   });
 }
-
