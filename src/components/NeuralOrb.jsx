@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-export const NeuralOrb = ({ size = 580, className = '' }) => {
+export const NeuralOrb = ({ size = 560, className = '' }) => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -54,11 +54,11 @@ export const NeuralOrb = ({ size = 580, className = '' }) => {
       const z = Math.sin(theta) * radiusAtY;
 
       // Color distribution:
-      // Type 0: Radiant Cyber Violet / Magenta (~35%)
-      // Type 1: Hyper-Luminous Electric Cyan / Aqua (~35%)
-      // Type 2: Radiant Solar Gold / Amber Highlight (~30%)
+      // Type 0: Incandescent Pure Diamond White (~35%)
+      // Type 1: Hyper-Luminous Electric Cyan & Cyber Blue (~40%)
+      // Type 2: Deep Glossy Obsidian Black with Cyan Rim Light (~25%)
       const rand = Math.random();
-      const colorType = rand < 0.35 ? 0 : (rand < 0.70 ? 1 : 2);
+      const colorType = rand < 0.35 ? 0 : (rand < 0.75 ? 1 : 2);
 
       points.push({
         x,
@@ -68,7 +68,7 @@ export const NeuralOrb = ({ size = 580, className = '' }) => {
         colorType,
         currentScale: 1.0,
         targetScale: 1.0,
-        baseRadius: (size / 380) * (2.8 + (colorType === 2 ? 0.7 : 0.2) + Math.random() * 0.6),
+        baseRadius: (size / 380) * (2.8 + (colorType === 0 ? 0.6 : (colorType === 1 ? 0.4 : 0.2)) + Math.random() * 0.5),
       });
     }
 
@@ -87,18 +87,18 @@ export const NeuralOrb = ({ size = 580, className = '' }) => {
       }
     }
 
-    // Saturn-like Asteroid Ring System with Wide Natural Flow (750 particles)
+    // Saturn Asteroid Belt Particles: Pure White, Deep Black, and Radiant Cyan Blue (750 particles)
     const numDebris = 750;
     const debris = [];
     const debrisColorPairs = [
-      { dark: '#c084fc', light: '#9333ea' }, // Vivid royal violet
-      { dark: '#e879f9', light: '#c026d3' }, // Radiant neon fuchsia
-      { dark: '#38bdf8', light: '#0284c7' }, // Electric sky cyan
-      { dark: '#00f0ff', light: '#0891b2' }, // Hyper neon cyan
-      { dark: '#fde047', light: '#d97706' }, // Blazing gold amber
-      { dark: '#ffffff', light: '#38bdf8' }, // Incandescent white diamond
-      { dark: '#f43f5e', light: '#e11d48' }, // Vivid ruby laser
-      { dark: '#2dd4bf', light: '#0d9488' }, // Vivid seafoam teal
+      { dark: '#ffffff', light: '#38bdf8' }, // Pure Diamond White
+      { dark: '#00f0ff', light: '#0284c7' }, // Electric Neon Cyan
+      { dark: '#38bdf8', light: '#00f0ff' }, // Ice Blue Starlight
+      { dark: '#e0f2fe', light: '#ffffff' }, // Crystal Frost White
+      { dark: '#0284c7', light: '#0f172a' }, // Deep Cyber Cobalt Blue
+      { dark: '#67e8f9', light: '#0369a1' }, // Vivid Turquoise Blue
+      { dark: '#0f172a', light: '#00f0ff' }, // Obsidian Black Core with Cyan Edge
+      { dark: '#ffffff', light: '#00f0ff' }, // Pure Spark White
     ];
 
     for (let i = 0; i < numDebris; i++) {
@@ -368,7 +368,7 @@ export const NeuralOrb = ({ size = 580, className = '' }) => {
         };
       }
 
-      // 4. Draw back-layer debris particles (behind orb: z < 0) - Highly visible electric hues
+      // 4. Draw back-layer debris particles (behind orb: z < 0)
       for (let i = 0; i < projectedDebris.length; i++) {
         const d = projectedDebris[i];
         if (d.z < 0) {
@@ -380,7 +380,7 @@ export const NeuralOrb = ({ size = 580, className = '' }) => {
       }
       ctx.globalAlpha = 1;
 
-      // 5. Draw luminous geodesic mesh connecting lines
+      // 5. Draw luminous geodesic mesh connecting lines (Electric Cyan & Ice White)
       for (let k = 0; k < neighbors.length; k++) {
         const [i, j] = neighbors[k];
         const p1 = projected[i];
@@ -397,7 +397,7 @@ export const NeuralOrb = ({ size = 580, className = '' }) => {
 
           if (hoverBoost > 1.2) {
             ctx.lineWidth = 1.1 + (hoverBoost - 1) * 0.8;
-            ctx.strokeStyle = `rgba(240, 171, 252, ${Math.min(0.95, alpha * 2.0)})`; // Electric magenta flare
+            ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.95, alpha * 2.0)})`; // Pure white laser flash
           } else {
             ctx.lineWidth = 0.85;
             ctx.strokeStyle = `rgba(0, 240, 255, ${alpha})`; // Crisp luminous cyan
@@ -409,7 +409,7 @@ export const NeuralOrb = ({ size = 580, className = '' }) => {
         }
       }
 
-      // 6. Draw 3D nodes sorted back-to-front with High-Visibility Electric Palette
+      // 6. Draw 3D nodes sorted back-to-front with White, Black & Cyan-Blue Palette
       const sortedNodeIndices = projected
         .map((_, i) => i)
         .sort((a, b) => projected[a].z - projected[b].z);
@@ -431,33 +431,41 @@ export const NeuralOrb = ({ size = 580, className = '' }) => {
           r
         );
 
-        if (pt.colorType === 2) {
-          // Color 2: Solar Gold & Incandescent Amber (~30%)
-          // Extreme contrast against dark blue room!
+        if (pt.colorType === 0) {
+          // =====================================================================
+          // Color 0: INCANDESCENT PURE DIAMOND WHITE (~35%)
+          // Brilliant crystalline white with ice-cyan highlights
+          // =====================================================================
           grad.addColorStop(0, '#FFFFFF');
-          grad.addColorStop(0.20, '#FEF08A'); // bright starlight yellow
-          grad.addColorStop(0.55, '#FACC15'); // rich cyber gold
-          grad.addColorStop(0.85, '#F59E0B'); // radiant amber
-          grad.addColorStop(1, '#B45309');    // warm bronze edge
-          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.50, (pt.z + currentSphereRadius) / currentSphereRadius + 0.4);
+          grad.addColorStop(0.25, '#F0F9FF'); // bright starlight pearl
+          grad.addColorStop(0.60, '#E0F2FE'); // luminous ice white
+          grad.addColorStop(0.85, '#BAE6FD'); // crystal sky cyan
+          grad.addColorStop(1, '#7DD3FC');    // fine azure rim
+          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.55, (pt.z + currentSphereRadius) / currentSphereRadius + 0.45);
+
         } else if (pt.colorType === 1) {
-          // Color 1: Hyper-Luminous Electric Cyan & Aqua (~35%)
-          // Signature neon cyan that shines brilliantly on dark background
+          // =====================================================================
+          // Color 1: HYPER-LUMINOUS ELECTRIC CYAN & CYBER BLUE (~40%)
+          // Signature TrustLens Arc cyan with vivid cobalt depth
+          // =====================================================================
           grad.addColorStop(0, '#FFFFFF');
-          grad.addColorStop(0.18, '#A5F3FC'); // crystal white-cyan
-          grad.addColorStop(0.48, '#00F0FF'); // blazing electric cyan
-          grad.addColorStop(0.80, '#0284C7'); // deep ocean azure
-          grad.addColorStop(1, '#0369A1');    // deep edge
-          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.45, (pt.z + currentSphereRadius) / currentSphereRadius + 0.35);
+          grad.addColorStop(0.20, '#67E8F9'); // vibrant neon cyan
+          grad.addColorStop(0.55, '#00F0FF'); // hyper electric cyan
+          grad.addColorStop(0.85, '#0284C7'); // deep cyber cobalt blue
+          grad.addColorStop(1, '#034E7B');    // deep marine edge
+          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.50, (pt.z + currentSphereRadius) / currentSphereRadius + 0.40);
+
         } else {
-          // Color 0: Radiant Cyber Violet & Fuchsia (~35%)
-          // Vivid purple that adds deep dimensional contrast without turning black!
-          grad.addColorStop(0, '#FFFFFF');
-          grad.addColorStop(0.22, '#F0ABFC'); // neon lilac
-          grad.addColorStop(0.58, '#C084FC'); // radiant violet
-          grad.addColorStop(0.85, '#9333EA'); // electric purple
-          grad.addColorStop(1, '#6B21A8');    // royal indigo edge
-          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.45, (pt.z + currentSphereRadius) / currentSphereRadius + 0.35);
+          // =====================================================================
+          // Color 2: DEEP GLOSSY OBSIDIAN BLACK WITH CYAN RIM LIGHT (~25%)
+          // Sculptural black marble with razor-sharp specular glint and cyan edge
+          // =====================================================================
+          grad.addColorStop(0, '#FFFFFF');     // razor-sharp white specular glint
+          grad.addColorStop(0.15, '#38BDF8');   // electric cyan specular ring
+          grad.addColorStop(0.38, '#1E293B');   // slate carbon
+          grad.addColorStop(0.72, '#060B14');   // deep obsidian black core
+          grad.addColorStop(1, '#00F0FF');      // crisp cyan rim light around circumference
+          ctx.globalAlpha = pt.z > 0 ? 0.98 : Math.max(0.48, (pt.z + currentSphereRadius) / currentSphereRadius + 0.35);
         }
 
         ctx.fillStyle = grad;

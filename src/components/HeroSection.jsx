@@ -472,9 +472,9 @@ export default function HeroSection({ onEnterDashboard }) {
         >
           {/* Big Interactive 3D Neural Art Orb with Multi-Layer Volumetric Glow */}
           <div className="relative flex items-center justify-center pointer-events-auto transform scale-100 sm:scale-105 lg:scale-115 transition-transform">
-            {/* Multi-layered radial ambient glow backdrop */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/35 via-purple-600/30 to-amber-500/25 rounded-full blur-[100px] transform scale-125 pointer-events-none" />
-            <div className="absolute inset-0 bg-cyan-400/25 rounded-full blur-[160px] transform scale-150 pointer-events-none" />
+            {/* Multi-layered radial ambient glow backdrop in Electric Cyan, Pure White & Cosmic Obsidian */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/35 via-blue-600/25 to-cyan-300/20 rounded-full blur-[110px] transform scale-125 pointer-events-none" />
+            <div className="absolute inset-0 bg-cyan-400/20 rounded-full blur-[160px] transform scale-150 pointer-events-none" />
             
             {/* Big 3D Neural Orb Component */}
             <NeuralOrb size={560} className="relative z-20 drop-shadow-[0_0_80px_rgba(0,240,255,0.65)]" />
