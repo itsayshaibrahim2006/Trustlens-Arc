@@ -29,6 +29,24 @@ function getLevenshteinDistance(a, b) {
 }
 
 /**
+ * PhiUSIIL Feature: Computes Shannon Entropy of domain string to detect DGA / Random Phishing hosts
+ */
+function calculateShannonEntropy(str) {
+  if (!str || str.length === 0) return 0;
+  const frequencies = {};
+  for (const char of str) {
+    frequencies[char] = (frequencies[char] || 0) + 1;
+  }
+  let entropy = 0;
+  const len = str.length;
+  for (const char in frequencies) {
+    const p = frequencies[char] / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
+
+/**
  * Checks for Homograph / Cyrillic visual spoofing
  */
 function checkHomoglyphs(str) {
@@ -358,6 +376,50 @@ export function detonateUrl(rawInputUrl) {
       type: 'URL_SHORTENER',
       label: 'Redirect Cloaking Shortener',
       detail: `URL uses shortener service (${hostname}) to conceal actual destination.`
+    });
+  }
+
+  // 10. PhiUSIIL Feature: Excessive Subdomain Depth Cloaking
+  // Attackers stack subdomains to push the malicious base domain outside the visible address bar on mobile devices
+  if (hostParts.length >= 4 && !isIpAddress) {
+    riskScore += 35;
+    signals.push({
+      type: 'SUBDOMAIN_DEPTH_ATTACK',
+      label: `Excessive Subdomain Stacking (Depth: ${hostParts.length - 1})`,
+      detail: `Domain employs ${hostParts.length - 1} nested subdomains (${hostname}) to visually disguise destination host on mobile viewports.`
+    });
+  }
+
+  // 11. PhiUSIIL Feature: Shannon Entropy & Algorithmically Generated Domain (DGA)
+  const sld = hostParts.length >= 2 ? hostParts[hostParts.length - 2] : hostname;
+  const entropy = calculateShannonEntropy(sld);
+  if (entropy > 3.85 && sld.length > 8) {
+    riskScore += 30;
+    signals.push({
+      type: 'DGA_HIGH_ENTROPY',
+      label: `Algorithmic Randomness (Shannon Entropy: ${entropy.toFixed(2)})`,
+      detail: `Domain label "${sld}" exhibits high character randomness characteristic of automated DGA phishing infrastructure.`
+    });
+  }
+
+  // 12. PhiUSIIL Feature: Numeric Density & Non-Standard Port
+  const numericCount = (hostname.match(/\d/g) || []).length;
+  const numericRatio = hostname.length > 0 ? (numericCount / hostname.length) : 0;
+  if (numericRatio > 0.35 && !isIpAddress) {
+    riskScore += 25;
+    signals.push({
+      type: 'HIGH_NUMERIC_RATIO',
+      label: `Abnormal Digit Density (${(numericRatio * 100).toFixed(0)}% Numbers)`,
+      detail: `Domain employs an unusually high proportion of numbers, typical of temporary burner domains.`
+    });
+  }
+
+  if (parsed.port && !['80', '443', ''].includes(parsed.port)) {
+    riskScore += 40;
+    signals.push({
+      type: 'NON_STANDARD_PORT',
+      label: `Non-Standard Gateway Port (:${parsed.port})`,
+      detail: `URL routes traffic through an irregular web port (:${parsed.port}), evading standard corporate proxy inspection.`
     });
   }
 

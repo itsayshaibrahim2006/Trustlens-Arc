@@ -130,7 +130,30 @@ export const URGENCY_PATTERNS = [
   /respond\s+immediately\s+to\s+secure/i,
   /no\s+technical\s+interview\s+required/i,
   /no\s+technical\s+interview/i,
-  /no\s+interview\s+needed/i
+  /no\s+interview\s+needed/i,
+  /offer\s+(?:is\s+)?valid\s+only\s+today/i,
+  /immediate\s+confirmation\s+without\s+screening/i
+];
+
+// Pillar 6: EMSCAD Benchmark Upfront Identity & Banking Harvesting
+export const IDENTITY_HARVESTING_PATTERNS = [
+  /(?:provide|submit|send)\s+(?:your\s+)?(?:ssn|social\s+security\s+number)/i,
+  /(?:front\s+and\s+back|copy)\s+of\s+(?:your\s+)?(?:driver'?s?\s+license|passport|national\s+id)/i,
+  /bank\s+(?:account|routing)\s+number\s+for\s+(?:equipment|starter|laptop)/i,
+  /credit\s+(?:report|score)\s+verification\s+fee/i,
+  /background\s+check\s+processing\s+fee/i,
+  /send\s+(?:your\s+)?banking\s+credentials/i
+];
+
+// Pillar 7: EMSCAD Instant Direct Hiring & Unrealistic Compensation Red Flags
+export const INSTANT_HIRE_PATTERNS = [
+  /direct\s+appointment\s+(?:letter|order)/i,
+  /interview\s+(?:has\s+been\s+|is\s+)?waived/i,
+  /selected\s+without\s+(?:any\s+)?(?:interview|test|screening)/i,
+  /congratulations\s+you\s+are\s+hired\s+immediately/i,
+  /(?:data\s+entry|typing|virtual\s+assistant|clerk)\s*[-–,:@]\s*\$(?:[4-9]\d|1\d\d)\s*(?:\/|\s*per\s*)hr/i,
+  /no\s+experience\s+(?:required|needed)\s*[-–,:@]\s*\$(?:[4-9]\d|1\d\d)/i,
+  /earn\s+\$[1-9]\d{3,}\s*(?:weekly|a\s+week)\s+from\s+home/i
 ];
 
 export const STANDARD_EMPLOYMENT_CLAUSES = [

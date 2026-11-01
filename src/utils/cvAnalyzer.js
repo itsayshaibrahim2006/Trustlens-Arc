@@ -9,6 +9,8 @@ import {
   CONSUMER_FORGERY_PRODUCERS,
   ENTERPRISE_ATS_SIGNATURES,
   URGENCY_PATTERNS,
+  IDENTITY_HARVESTING_PATTERNS,
+  INSTANT_HIRE_PATTERNS,
   STANDARD_EMPLOYMENT_CLAUSES,
   TECH_LANGUAGE_MAP
 } from './scamPatterns.js';
@@ -263,6 +265,40 @@ function evaluateOfferLetter(text, metadata, hiddenUris) {
       signal: 'Artificial Urgency & Compensation Anomaly',
       risk: 'medium',
       detail: p5Hits[0]
+    });
+  }
+
+  // --- PILLAR 6 (EMSCAD): Upfront Identity & Financial Credential Harvesting ---
+  const p6Hits = [];
+  IDENTITY_HARVESTING_PATTERNS.forEach(pat => {
+    const m = textLower.match(pat);
+    if (m) p6Hits.push(m[0]);
+  });
+  if (p6Hits.length > 0) {
+    totalPenalty += 45;
+    hardVetoCap = Math.min(hardVetoCap, 25);
+    findings.push({
+      pillar: 'PILLAR_6',
+      signal: 'EMSCAD Identity & Financial Data Harvesting',
+      risk: 'high',
+      detail: `Premature request for sensitive credentials (${p6Hits[0]}). Legitimate corporate offers gather onboarding forms through encrypted HR portals after counter-signature.`
+    });
+  }
+
+  // --- PILLAR 7 (EMSCAD): Instant Appointment & Interview Waiver Red Flag ---
+  const p7Hits = [];
+  INSTANT_HIRE_PATTERNS.forEach(pat => {
+    const m = textLower.match(pat);
+    if (m) p7Hits.push(m[0]);
+  });
+  if (p7Hits.length > 0) {
+    totalPenalty += 40;
+    hardVetoCap = Math.min(hardVetoCap, 30);
+    findings.push({
+      pillar: 'PILLAR_7',
+      signal: 'EMSCAD Instant Hire / Interview Bypass Indicator',
+      risk: 'high',
+      detail: `Unrealistic hiring process without vetting (${p7Hits[0]}). Classic characteristic of fake employment fraud.`
     });
   }
 
