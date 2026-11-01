@@ -645,3 +645,4 @@ class QRAndLinkDetonator:
         report.verdict = verdict
         report.summary = summary
         return report
+
