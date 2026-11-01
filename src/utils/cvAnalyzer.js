@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { 
   ADVANCE_FEE_PATTERNS, 
   PAYMENT_APP_PATTERNS,
@@ -15,13 +16,20 @@ import {
   TECH_LANGUAGE_MAP
 } from './scamPatterns.js';
 
-// Configure pdfjs worker
+// Configure pdfjs worker with local bundled asset from Vite
 if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
   try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.10.38'}/pdf.worker.min.mjs`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
   } catch (err) {
     console.warn('PDF.js worker initialization notice:', err);
   }
+}
+
+/**
+ * Escapes regex special characters safely
+ */
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -112,6 +120,83 @@ async function extractPdfData(file) {
       metadata: {},
       hiddenUris: []
     };
+  }
+}
+
+/**
+ * Extracts raw text from DOCX (Word) documents natively via ZIP decompression
+ */
+async function extractDocxData(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const u8 = new Uint8Array(buf);
+    const view = new DataView(buf);
+    let offset = 0;
+    while (offset + 30 < u8.length) {
+      if (u8[offset] === 0x50 && u8[offset + 1] === 0x4b && u8[offset + 2] === 0x03 && u8[offset + 3] === 0x04) {
+        const compMethod = view.getUint16(offset + 8, true);
+        const compSize = view.getUint32(offset + 18, true);
+        const nameLen = view.getUint16(offset + 26, true);
+        const extraLen = view.getUint16(offset + 28, true);
+        const nameBytes = u8.subarray(offset + 30, offset + 30 + nameLen);
+        const name = new TextDecoder().decode(nameBytes);
+        const dataStart = offset + 30 + nameLen + extraLen;
+        if (name === 'word/document.xml') {
+          const compData = u8.subarray(dataStart, dataStart + compSize);
+          if (compMethod === 8 && typeof DecompressionStream !== 'undefined') {
+            const ds = new DecompressionStream('deflate-raw');
+            const writer = ds.writable.getWriter();
+            writer.write(compData);
+            writer.close();
+            const reader = ds.readable.getReader();
+            const chunks = [];
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+            }
+            const totalLen = chunks.reduce((a, b) => a + b.length, 0);
+            const full = new Uint8Array(totalLen);
+            let pos = 0;
+            for (const chunk of chunks) {
+              full.set(chunk, pos);
+              pos += chunk.length;
+            }
+            const xml = new TextDecoder().decode(full);
+            const cleanText = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+            return {
+              text: cleanText,
+              numPages: 1,
+              metadata: {},
+              hiddenUris: []
+            };
+          } else if (compMethod === 0) {
+            const xml = new TextDecoder().decode(compData);
+            const cleanText = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+            return {
+              text: cleanText,
+              numPages: 1,
+              metadata: {},
+              hiddenUris: []
+            };
+          }
+        }
+        offset = dataStart + compSize;
+      } else {
+        offset++;
+      }
+    }
+  } catch (err) {
+    console.warn('DOCX ZIP extraction notice:', err);
+  }
+
+  // Fallback text extraction
+  try {
+    const raw = await file.text();
+    const clean = raw.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ');
+    return { text: clean, numPages: 1, metadata: {}, hiddenUris: [] };
+  } catch {
+    return { text: file.name, numPages: 1, metadata: {}, hiddenUris: [] };
   }
 }
 
@@ -335,7 +420,10 @@ async function evaluateCandidateResume(text, metadata, hiddenUris) {
   // Extract claimed programming languages
   const claimedSkills = {};
   Object.entries(TECH_LANGUAGE_MAP).forEach(([skill, lang]) => {
-    const rx = new RegExp(`\\b${skill}\\b`, 'i');
+    const escaped = escapeRegExp(skill);
+    const rx = /[a-zA-Z0-9_]/.test(skill.slice(-1))
+      ? new RegExp(`\\b${escaped}\\b`, 'i')
+      : new RegExp(`(?:^|[\\s,;()/\\'"])${escaped}(?=[\\s,;()/\\'"]|$)`, 'i');
     if (rx.test(textLower)) {
       claimedSkills[skill] = lang;
     }
@@ -531,10 +619,14 @@ async function evaluateCandidateResume(text, metadata, hiddenUris) {
  */
 export async function analyzeCvDocument(file) {
   let docData;
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  const fileName = (file.name || '').toLowerCase();
+  const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
+  const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx');
 
   if (isPdf) {
     docData = await extractPdfData(file);
+  } else if (isDocx) {
+    docData = await extractDocxData(file);
   } else {
     try {
       const text = await file.text();

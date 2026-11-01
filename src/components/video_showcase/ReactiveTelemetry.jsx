@@ -66,6 +66,7 @@ export default function ReactiveTelemetry() {
   const sparkleCanvasRef = useRef(null);
   const orbCanvasRef = useRef(null);
   const fileInputRef = useRef(null);
+  const hoverDataRef = useRef(null);
 
   // Web Audio engine refs
   const acousticEngineRef = useRef(null);
@@ -643,12 +644,15 @@ export default function ReactiveTelemetry() {
       sparkleCanvas.width = window.innerWidth;
       sparkleCanvas.height = window.innerHeight;
 
-      const rect = pitchCanvas.getBoundingClientRect();
+      // Read dimensions strictly from container's clientWidth / clientHeight
+      // to ensure canvas never pushes or expands its parent layout
+      const container = pitchCanvas.parentElement;
+      const w = container?.clientWidth || pitchContainerRef.current?.clientWidth || 550;
+      const h = container?.clientHeight || 130;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = Math.max(300, rect.width || pitchContainerRef.current?.clientWidth || 550);
-      const h = Math.max(120, rect.height || 140);
-      pitchCanvas.width = w * dpr;
-      pitchCanvas.height = h * dpr;
+
+      pitchCanvas.width = Math.round(w * dpr);
+      pitchCanvas.height = Math.round(h * dpr);
     };
 
     handleResize();
@@ -962,12 +966,13 @@ export default function ReactiveTelemetry() {
         }
 
         // Hover Laser Crosshair
-        if (hoverData) {
+        const currentHover = hoverDataRef.current;
+        if (currentHover) {
           pitchCtx.strokeStyle = "rgba(255, 255, 255, 0.65)";
           pitchCtx.lineWidth = 1.5;
           pitchCtx.beginPath();
-          pitchCtx.moveTo(hoverData.canvasX, 0);
-          pitchCtx.lineTo(hoverData.canvasX, ph);
+          pitchCtx.moveTo(currentHover.canvasX, 0);
+          pitchCtx.lineTo(currentHover.canvasX, ph);
           pitchCtx.stroke();
         }
       }
@@ -981,16 +986,19 @@ export default function ReactiveTelemetry() {
       window.removeEventListener('resize', handleResize);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [visMode, isFake, isPlaying, isMicActive, isSimulatedMic, hoverData, currentSample]);
+  }, [visMode, isFake, isPlaying, isMicActive, isSimulatedMic, currentSample]);
 
   // Spectrogram Mouse Interaction
   const handleCanvasMouseMove = (e) => {
+    e.stopPropagation();
     const canvas = pitchCanvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const ratioX = (e.clientX - rect.left) / rect.width;
+    if (!rect.width || !rect.height) return;
+
+    const ratioX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const canvasX = ratioX * canvas.width;
-    const canvasY = ((e.clientY - rect.top) / rect.height) * canvas.height;
+    const canvasY = Math.max(0, Math.min(canvas.height, ((e.clientY - rect.top) / rect.height) * canvas.height));
 
     const baseF0 = currentSample.baseHz || (isFake ? 142.4 : 118.2);
     const hz = isFake 
@@ -998,10 +1006,13 @@ export default function ReactiveTelemetry() {
       : Math.round(baseF0 + Math.sin(ratioX * 12) * 35);
 
     const note = isFake ? 'Robotic Flatness' : 'Organic Vibrato';
-    setHoverData({ canvasX, canvasY, hz, note });
+    const data = { canvasX, canvasY, hz, note };
+    hoverDataRef.current = data;
+    setHoverData(data);
   };
 
   const handleCanvasMouseLeave = () => {
+    hoverDataRef.current = null;
     setHoverData(null);
   };
 
@@ -1399,12 +1410,12 @@ export default function ReactiveTelemetry() {
               ref={pitchContainerRef}
               onMouseMove={handleCardMouseMove}
               onMouseLeave={handleCardMouseLeave}
-              className="p-5 rounded-2xl bg-slate-900/70 border border-white/10 flex-1 flex flex-col justify-between min-h-[225px] relative transition-transform"
+              className="p-5 rounded-2xl bg-slate-900/70 border border-white/10 flex flex-col justify-between min-h-[240px] max-h-[340px] overflow-hidden relative transition-transform"
               style={{ transformStyle: 'preserve-3d' }}
             >
               
               {/* Live Pitch Header + Real-Time Hz Counter + Mode Switcher */}
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5 shrink-0">
                 <div className="flex items-center gap-2.5">
                   <span className="text-xs font-extrabold text-white flex items-center gap-2">
                     <Activity className="w-3.5 h-3.5 text-fuchsia-400" />
@@ -1448,16 +1459,16 @@ export default function ReactiveTelemetry() {
               </div>
 
               {/* Interactive 3D Real-Time Pitch Canvas */}
-              <div className="relative w-full flex-1 min-h-[110px] rounded-2xl overflow-hidden bg-[#04060E] border border-white/10 shadow-inner">
+              <div className="relative w-full h-[130px] shrink-0 rounded-2xl overflow-hidden bg-[#04060E] border border-white/10 shadow-inner">
                 <canvas 
                   ref={pitchCanvasRef}
                   onMouseMove={handleCanvasMouseMove}
                   onMouseLeave={handleCanvasMouseLeave}
-                  className="w-full h-full block cursor-crosshair"
+                  className="absolute inset-0 w-full h-full block cursor-crosshair"
                 />
 
                 {/* Live Pitch Axis Labels */}
-                <div className="pointer-events-none absolute inset-y-1.5 left-2.5 flex flex-col justify-between text-[9px] font-mono text-slate-500">
+                <div className="pointer-events-none absolute inset-y-1.5 left-2.5 flex flex-col justify-between text-[9px] font-mono text-slate-500 select-none">
                   <span>HIGH PITCH (320 Hz)</span>
                   <span>MID VOICE (160 Hz)</span>
                   <span>LOW BASS (60 Hz)</span>
@@ -1472,7 +1483,7 @@ export default function ReactiveTelemetry() {
               </div>
 
               {/* 3 Real-Time Voice Telemetry Pills */}
-              <div className="grid grid-cols-3 gap-3 mt-3">
+              <div className="grid grid-cols-3 gap-3 mt-3 shrink-0">
                 <div className="bg-[#050814]/80 border border-white/10 rounded-xl px-3.5 py-2 flex items-center justify-between">
                   <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
                     <Heart className="w-3.5 h-3.5 text-rose-400" /> Human Match
