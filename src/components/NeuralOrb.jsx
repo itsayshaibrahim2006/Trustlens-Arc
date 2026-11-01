@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-export const NeuralOrb = ({ size = 460, className = '' }) => {
+export const NeuralOrb = ({ size = 580, className = '' }) => {
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -24,9 +24,8 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
     let isHovering = false;
 
     // Viewport dimensions: extra margin on left, right, top, bottom so debris flows naturally
-    // outside the square, over surrounding elements
-    const extraX = Math.round(Math.min(300, Math.max(40, size * 0.3)));
-    const extraY = Math.round(Math.min(200, Math.max(30, size * 0.2)));
+    const extraX = Math.round(Math.min(360, Math.max(50, size * 0.32)));
+    const extraY = Math.round(Math.min(260, Math.max(40, size * 0.22)));
     const canvasWidth = size + extraX;
     const canvasHeight = size + extraY;
     const cx = canvasWidth / 2;
@@ -37,10 +36,10 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
     canvas.height = canvasHeight * dpr;
     ctx.scale(dpr, dpr);
 
-    // Noticeably bigger orb radius for commanding visual presence
-    const baseRadius = size * 0.385;
+    // Bigger orb radius for commanding, cinematic presence
+    const baseRadius = size * 0.395;
 
-    // Dense node count matching Technometics (~380 nodes)
+    // Dense node count (380 nodes)
     const numPoints = 380;
     const points = [];
 
@@ -54,9 +53,12 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
       const x = Math.cos(theta) * radiusAtY;
       const z = Math.sin(theta) * radiusAtY;
 
-      // Color distribution: ~50% Dark Navy/Teal, ~35% Ocean Cyan, ~15% Aqua Highlight
+      // Color distribution:
+      // Type 0: Radiant Cyber Violet / Magenta (~35%)
+      // Type 1: Hyper-Luminous Electric Cyan / Aqua (~35%)
+      // Type 2: Radiant Solar Gold / Amber Highlight (~30%)
       const rand = Math.random();
-      const colorType = rand < 0.50 ? 0 : (rand < 0.85 ? 1 : 2);
+      const colorType = rand < 0.35 ? 0 : (rand < 0.70 ? 1 : 2);
 
       points.push({
         x,
@@ -66,13 +68,13 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         colorType,
         currentScale: 1.0,
         targetScale: 1.0,
-        baseRadius: (size / 380) * (2.6 + (colorType === 2 ? 0.6 : 0) + Math.random() * 0.5),
+        baseRadius: (size / 380) * (2.8 + (colorType === 2 ? 0.7 : 0.2) + Math.random() * 0.6),
       });
     }
 
     // Pre-calculate nearest neighbors for fine geodesic triangulation mesh
     const neighbors = [];
-    const maxNeighborDist = 0.22; // optimal for 380 points to give 5-6 connections per node
+    const maxNeighborDist = 0.22;
     for (let i = 0; i < points.length; i++) {
       for (let j = i + 1; j < points.length; j++) {
         const dx = points[i].x - points[j].x;
@@ -85,26 +87,24 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
       }
     }
 
-    // Saturn-like Asteroid Ring System with Wide Natural Flow (700 particles)
-    const numDebris = 700;
+    // Saturn-like Asteroid Ring System with Wide Natural Flow (750 particles)
+    const numDebris = 750;
     const debris = [];
     const debrisColorPairs = [
-      { dark: '#a855f7', light: '#8b5cf6' }, // electric violet
-      { dark: '#9333ea', light: '#a855f7' }, // radiant purple
-      { dark: '#c084fc', light: '#7c3aed' }, // vivid royal violet
-      { dark: '#d946ef', light: '#d946ef' }, // bright neon fuchsia
-      { dark: '#ec4899', light: '#ec4899' }, // luminous pink
-      { dark: '#06b6d4', light: '#06b6d4' }, // vibrant electric cyan
-      { dark: '#22d3ee', light: '#0284c7' }, // vivid cerulean cyan
-      { dark: '#38bdf8', light: '#0ea5e9' }, // bright azure sky
-      { dark: '#00f2fe', light: '#14b8a6' }, // radiant bright teal
-      { dark: '#ffffff', light: '#3b82f6' }, // bright electric sapphire
+      { dark: '#c084fc', light: '#9333ea' }, // Vivid royal violet
+      { dark: '#e879f9', light: '#c026d3' }, // Radiant neon fuchsia
+      { dark: '#38bdf8', light: '#0284c7' }, // Electric sky cyan
+      { dark: '#00f0ff', light: '#0891b2' }, // Hyper neon cyan
+      { dark: '#fde047', light: '#d97706' }, // Blazing gold amber
+      { dark: '#ffffff', light: '#38bdf8' }, // Incandescent white diamond
+      { dark: '#f43f5e', light: '#e11d48' }, // Vivid ruby laser
+      { dark: '#2dd4bf', light: '#0d9488' }, // Vivid seafoam teal
     ];
 
     for (let i = 0; i < numDebris; i++) {
       const randR = Math.random();
       let rDist;
-      // Realistic Saturn Ring Banding Structure with outer debris flowing wide:
+      // Realistic Saturn Ring Banding Structure:
       if (randR < 0.35) {
         // Dense Main Inner Ring (Ring B): 1.14 to 1.34
         rDist = 1.14 + Math.random() * 0.20;
@@ -130,9 +130,9 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         orbitRadius: rDist,
         angle: Math.random() * Math.PI * 2,
         speed: speed * (Math.random() > 0.08 ? 1 : 1.08),
-        verticalOffset: (Math.random() - 0.5) * 0.042 * (1.2 / rDist), // razor thin Saturn planetary disc profile
+        verticalOffset: (Math.random() - 0.5) * 0.042 * (1.2 / rDist),
         radialJitter: (Math.random() - 0.5) * 0.025,
-        size: (size / 380) * (Math.random() > 0.92 ? 3.6 : (Math.random() > 0.45 ? 2.3 : 1.4)),
+        size: (size / 380) * (Math.random() > 0.90 ? 3.8 : (Math.random() > 0.45 ? 2.5 : 1.5)),
         darkColor: colPair.dark,
         lightColor: colPair.light,
       });
@@ -142,7 +142,7 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
     const beltTiltZ = -0.42; // ~24 degrees tilt
     const beltTiltX = 0.46;  // ~26 degrees tilt
 
-    // Single wave impulse state: at one time ONLY ONE wave!
+    // Single wave impulse state
     let waveOriginX = -9999;
     let waveOriginY = -9999;
     let waveStartTime = -9999;
@@ -171,13 +171,11 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
       const y = (clientY - rect.top) * scaleY;
       const wasHovering = isHovering;
 
-      // Distance to the center of the 3D orb
       const dx = x - cx;
       const dy = y - cy;
       const distToCenter = Math.sqrt(dx * dx + dy * dy);
 
-      // Detect hover when cursor is within or near the orb (baseRadius * 1.25)
-      if (distToCenter <= baseRadius * 1.25) {
+      if (distToCenter <= baseRadius * 1.30) {
         mouseX = x;
         mouseY = y;
         isHovering = true;
@@ -186,12 +184,10 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         const moveDy = mouseY - lastTriggerY;
         const moveDist = Math.sqrt(moveDx * moveDx + moveDy * moveDy);
 
-        // The moment user moves cursor over the orb, immediately launch a single wave from that place.
         if (!wasHovering || moveDist > 8) {
           triggerSingleWave(mouseX, mouseY);
         }
 
-        // Subtle parallax tilt without spinning
         const normX = dx / (baseRadius * 1.5);
         const normY = dy / (baseRadius * 1.5);
         targetAngleY = baseAngleY + normX * 0.28;
@@ -205,16 +201,10 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
       }
     };
 
-    const handleWindowMouseMove = (e) => {
-      updatePointer(e.clientX, e.clientY);
-    };
-
+    const handleWindowMouseMove = (e) => updatePointer(e.clientX, e.clientY);
     const handleTouchMove = (e) => {
-      if (e.touches.length > 0) {
-        updatePointer(e.touches[0].clientX, e.touches[0].clientY);
-      }
+      if (e.touches.length > 0) updatePointer(e.touches[0].clientX, e.touches[0].clientY);
     };
-
     const handleGlobalClick = (e) => {
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
@@ -224,7 +214,7 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
       const y = (e.clientY - rect.top) * scaleY;
       const dx = x - cx;
       const dy = y - cy;
-      if (Math.sqrt(dx * dx + dy * dy) <= baseRadius * 1.25) {
+      if (Math.sqrt(dx * dx + dy * dy) <= baseRadius * 1.30) {
         triggerSingleWave(x, y);
       }
     };
@@ -236,7 +226,7 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
     const render = () => {
       time += 0.020;
 
-      // Smooth lerp towards parallax tilt (NO continuous spin)
+      // Smooth lerp towards parallax tilt
       angleY += (targetAngleY - angleY) * 0.08;
       angleX += (targetAngleX - angleX) * 0.08;
 
@@ -244,7 +234,7 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
 
       const fov = 440;
 
-      // Long, deep, relaxing breathing cycle (takes ~5.5s for full slow breath in and breath out)
+      // Slow, deep sinusoidal breathing cycle (~5.5s)
       const breatheFactor = 1 + 0.038 * Math.sin(time * 1.05);
       const currentSphereRadius = baseRadius * breatheFactor;
 
@@ -253,56 +243,48 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
 
-      // Rotate and project nodes
       const projected = new Array(points.length);
-      const hoverRadius = size * 0.28; // refined hover lens radius
+      const hoverRadius = size * 0.28;
 
       for (let i = 0; i < points.length; i++) {
         const p = points[i];
 
-        // Clean, perfect round 3D sphere geometry (NO vertex distortion)
         const px = p.x * currentSphereRadius;
         const py = p.y * currentSphereRadius;
         const pz = p.z * currentSphereRadius;
 
-        // Fixed 3D orientation rotation
         const x1 = px * cosY - pz * sinY;
         const z1 = pz * cosY + px * sinY;
         const y1 = py * cosX - z1 * sinX;
         const z2 = z1 * cosX + py * sinX;
 
-        const scale = fov / (fov + z2);
+        const safeZ = Math.max(-fov + 10, z2);
+        const scale = fov / (fov + safeZ);
         const screenX = cx + x1 * scale;
         const screenY = cy + y1 * scale;
 
-        // Magnification & Flow Animation Wave:
-        // 1. Direct magnification of nodes under cursor made larger (~2.85x max)
-        // 2. Single wave: at one time ONLY ONE wave expanding across all nodes
         let targetScale = 1.0;
-
-        // 1. Direct magnification of nodes under cursor
         let directScale = 0;
+
         if (isHovering) {
           const dx = screenX - mouseX;
           const dy = screenY - mouseY;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          const frontFactor = z2 > 0 ? 1.0 : Math.max(0.35, (z2 + currentSphereRadius) / currentSphereRadius);
+          const frontFactor = z2 > 0 ? 1.0 : Math.max(0.40, (z2 + currentSphereRadius) / currentSphereRadius);
 
-          // Direct magnification under cursor
           if (dist < hoverRadius) {
             const normDist = 1 - (dist / hoverRadius);
             const smooth = normDist * normDist * (3 - 2 * normDist);
-            directScale = smooth * 1.85 * frontFactor; // Nodes under cursor expand up to ~2.85x
+            directScale = smooth * 1.95 * frontFactor;
           }
         }
 
-        // 2. Single wave: precisely ONE wave crest traveling across all nodes
         let waveScale = 0;
         if (isWaveActive) {
           const elapsed = time - waveStartTime;
-          const waveSpeedPx = size * 0.52; // Smooth travel speed (~2.4s to cross orb)
+          const waveSpeedPx = size * 0.52;
           const waveRadius = elapsed * waveSpeedPx;
-          const waveWidth = size * 0.22; // Thickness of the wave crest band (~100px)
+          const waveWidth = size * 0.22;
 
           const dx = screenX - waveOriginX;
           const dy = screenY - waveOriginY;
@@ -310,26 +292,20 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
           const distFromCrest = Math.abs(distFromWaveOrigin - waveRadius);
 
           if (distFromCrest < waveWidth) {
-            // Cosine bell curve for this solitary wave crest
-            const norm = distFromCrest / waveWidth; // 0 at peak, 1 at edges
-            const bell = Math.cos(norm * (Math.PI / 2)); // 1.0 at peak, 0.0 at edges
+            const norm = distFromCrest / waveWidth;
+            const bell = Math.cos(norm * (Math.PI / 2));
             const wavePulse = Math.pow(bell, 1.8);
-            const frontFactor = z2 > 0 ? 1.0 : Math.max(0.40, (z2 + currentSphereRadius) / currentSphereRadius);
-
-            // Makes whichever nodes come in the wave bigger (~2.55x), then smaller as the wave passes
-            waveScale = wavePulse * 1.55 * frontFactor;
+            const frontFactor = z2 > 0 ? 1.0 : Math.max(0.45, (z2 + currentSphereRadius) / currentSphereRadius);
+            waveScale = wavePulse * 1.65 * frontFactor;
           }
         }
 
         targetScale = 1.0 + directScale + waveScale;
-
-        // Fluid, smooth lerp for dynamic swelling to big and returning smaller
         p.currentScale += (targetScale - p.currentScale) * 0.22;
 
-        // Gentle, slow breathing pulse per node (speed 1.3)
         const nodePulse = 1 + 0.038 * Math.sin(time * 1.3 + p.phase);
-        const safeScale = Math.max(0.01, scale);
-        const finalRadius = Math.max(1.4, p.baseRadius * safeScale * p.currentScale * nodePulse);
+        const safeScale = Math.max(0.1, scale);
+        const finalRadius = Math.max(1.5, p.baseRadius * safeScale * p.currentScale * nodePulse);
 
         projected[i] = {
           screenX,
@@ -342,7 +318,6 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         };
       }
 
-      // Conclude single wave once it has reached beyond the sphere boundary
       if (isWaveActive) {
         const elapsed = time - waveStartTime;
         const waveSpeedPx = size * 0.52;
@@ -352,7 +327,7 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         }
       }
 
-      // 3. Update & project Saturn Asteroid Belt particles (continuous orbital rotation)
+      // 3. Update & project Saturn Asteroid Belt particles
       const projectedDebris = new Array(debris.length);
       const cosBeltZ = Math.cos(beltTiltZ);
       const sinBeltZ = Math.sin(beltTiltZ);
@@ -361,28 +336,27 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
 
       for (let i = 0; i < debris.length; i++) {
         const d = debris[i];
-        d.angle += d.speed; // Orbital rotation around the orb
+        d.angle += d.speed;
         const rOrbit = currentSphereRadius * (d.orbitRadius + d.radialJitter);
         const lx = Math.cos(d.angle) * rOrbit;
         const lz = Math.sin(d.angle) * rOrbit;
         const ly = d.verticalOffset * currentSphereRadius;
 
-        // Rotate into inclined belt plane (tilt Z, then tilt X)
         const bx1 = lx * cosBeltZ - ly * sinBeltZ;
         const by1 = ly * cosBeltZ + lx * sinBeltZ;
         const by2 = by1 * cosBeltX - lz * sinBeltX;
         const bz2 = lz * cosBeltX + by1 * sinBeltX;
 
-        // Apply subtle view parallax rotation
         const vx1 = bx1 * cosY - bz2 * sinY;
         const vz1 = bz2 * cosY + bx1 * sinY;
         const vy1 = by2 * cosX - vz1 * sinX;
         const vz2 = vz1 * cosX + by2 * sinX;
 
-        const dScale = fov / (fov + vz2);
+        const safeDkZ = Math.max(-fov + 10, vz2);
+        const dScale = fov / (fov + safeDkZ);
         const dx = cx + vx1 * dScale;
         const dy = cy + vy1 * dScale;
-        const dSize = d.size * dScale;
+        const dSize = Math.max(0.5, d.size * dScale);
 
         projectedDebris[i] = {
           screenX: dx,
@@ -394,25 +368,19 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         };
       }
 
-      // Check current theme dynamically every frame
-      const isLight = document.documentElement.classList.contains('light') || document.body.classList.contains('light');
-
-      // 4. Draw back-layer debris particles (behind orb: z < 0)
+      // 4. Draw back-layer debris particles (behind orb: z < 0) - Highly visible electric hues
       for (let i = 0; i < projectedDebris.length; i++) {
         const d = projectedDebris[i];
         if (d.z < 0) {
           const depthNorm = (d.z + currentSphereRadius * 1.8) / (currentSphereRadius * 2.5);
-          ctx.globalAlpha = isLight
-            ? Math.max(0.60, Math.min(0.92, depthNorm * 0.95))
-            : Math.max(0.12, Math.min(0.55, depthNorm));
-          ctx.fillStyle = isLight ? d.lightColor : d.darkColor;
-          const sz = isLight ? d.size * 1.30 : d.size;
-          ctx.fillRect(d.screenX - sz / 2, d.screenY - sz / 2, sz, sz);
+          ctx.globalAlpha = Math.max(0.35, Math.min(0.85, depthNorm * 0.95));
+          ctx.fillStyle = d.darkColor;
+          ctx.fillRect(d.screenX - d.size / 2, d.screenY - d.size / 2, d.size, d.size);
         }
       }
       ctx.globalAlpha = 1;
 
-      // 5. Draw fine geodesic mesh connecting lines
+      // 5. Draw luminous geodesic mesh connecting lines
       for (let k = 0; k < neighbors.length; k++) {
         const [i, j] = neighbors[k];
         const p1 = projected[i];
@@ -424,15 +392,15 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         if (dist2D < size * 0.16) {
           const avgZ = (p1.z + p2.z) / 2;
           const depthNorm = (avgZ + currentSphereRadius) / (currentSphereRadius * 2);
-          const alpha = Math.max(0.06, Math.min(0.65, depthNorm * 0.65));
+          const alpha = Math.max(0.18, Math.min(0.85, depthNorm * 0.85));
           const hoverBoost = Math.max(p1.currentScale, p2.currentScale);
 
           if (hoverBoost > 1.2) {
-            ctx.lineWidth = 0.9 + (hoverBoost - 1) * 0.6;
-            ctx.strokeStyle = `rgba(0, 180, 216, ${Math.min(0.85, alpha * 1.6)})`;
+            ctx.lineWidth = 1.1 + (hoverBoost - 1) * 0.8;
+            ctx.strokeStyle = `rgba(240, 171, 252, ${Math.min(0.95, alpha * 2.0)})`; // Electric magenta flare
           } else {
-            ctx.lineWidth = 0.75;
-            ctx.strokeStyle = `rgba(10, 120, 138, ${alpha})`;
+            ctx.lineWidth = 0.85;
+            ctx.strokeStyle = `rgba(0, 240, 255, ${alpha})`; // Crisp luminous cyan
           }
           ctx.beginPath();
           ctx.moveTo(p1.screenX, p1.screenY);
@@ -441,7 +409,7 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         }
       }
 
-      // 6. Draw 3D nodes sorted back-to-front for proper depth occlusion
+      // 6. Draw 3D nodes sorted back-to-front with High-Visibility Electric Palette
       const sortedNodeIndices = projected
         .map((_, i) => i)
         .sort((a, b) => projected[a].z - projected[b].z);
@@ -449,9 +417,8 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
       for (let k = 0; k < sortedNodeIndices.length; k++) {
         const idx = sortedNodeIndices[k];
         const pt = projected[idx];
-        const r = pt.radius;
+        const r = Math.max(0.2, pt.radius);
 
-        // 3D Spherical Radial Gradient with Top-Left Specular Highlight
         const glintOffsetX = r * 0.35;
         const glintOffsetY = r * 0.35;
 
@@ -465,41 +432,44 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         );
 
         if (pt.colorType === 2) {
-          // Color 2: Luminous Bright Aqua / Sky Blue Highlight (~15%)
+          // Color 2: Solar Gold & Incandescent Amber (~30%)
+          // Extreme contrast against dark blue room!
           grad.addColorStop(0, '#FFFFFF');
-          grad.addColorStop(0.20, '#BAE6FD');
-          grad.addColorStop(0.55, '#38BDF8');
-          grad.addColorStop(0.85, '#0284C7');
-          grad.addColorStop(1, '#034560');
-          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.35, (pt.z + currentSphereRadius) / currentSphereRadius + 0.3);
+          grad.addColorStop(0.20, '#FEF08A'); // bright starlight yellow
+          grad.addColorStop(0.55, '#FACC15'); // rich cyber gold
+          grad.addColorStop(0.85, '#F59E0B'); // radiant amber
+          grad.addColorStop(1, '#B45309');    // warm bronze edge
+          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.50, (pt.z + currentSphereRadius) / currentSphereRadius + 0.4);
         } else if (pt.colorType === 1) {
-          // Color 1: Ocean Teal / Vibrant Cyan (~35%)
+          // Color 1: Hyper-Luminous Electric Cyan & Aqua (~35%)
+          // Signature neon cyan that shines brilliantly on dark background
           grad.addColorStop(0, '#FFFFFF');
-          grad.addColorStop(0.18, '#67E8F9');
-          grad.addColorStop(0.48, '#0891B2');
-          grad.addColorStop(0.80, '#0E4E5C');
-          grad.addColorStop(1, '#03252E');
-          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.28, (pt.z + currentSphereRadius) / currentSphereRadius + 0.25);
+          grad.addColorStop(0.18, '#A5F3FC'); // crystal white-cyan
+          grad.addColorStop(0.48, '#00F0FF'); // blazing electric cyan
+          grad.addColorStop(0.80, '#0284C7'); // deep ocean azure
+          grad.addColorStop(1, '#0369A1');    // deep edge
+          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.45, (pt.z + currentSphereRadius) / currentSphereRadius + 0.35);
         } else {
-          // Color 0: Dark Midnight Navy / Teal (~50%)
-          grad.addColorStop(0, '#7DD3FC');
-          grad.addColorStop(0.25, '#0C4A60');
-          grad.addColorStop(0.65, '#072430');
-          grad.addColorStop(0.92, '#03141C');
-          grad.addColorStop(1, '#010A0F');
-          ctx.globalAlpha = pt.z > 0 ? 0.95 : Math.max(0.22, (pt.z + currentSphereRadius) / currentSphereRadius + 0.2);
+          // Color 0: Radiant Cyber Violet & Fuchsia (~35%)
+          // Vivid purple that adds deep dimensional contrast without turning black!
+          grad.addColorStop(0, '#FFFFFF');
+          grad.addColorStop(0.22, '#F0ABFC'); // neon lilac
+          grad.addColorStop(0.58, '#C084FC'); // radiant violet
+          grad.addColorStop(0.85, '#9333EA'); // electric purple
+          grad.addColorStop(1, '#6B21A8');    // royal indigo edge
+          ctx.globalAlpha = pt.z > 0 ? 1 : Math.max(0.45, (pt.z + currentSphereRadius) / currentSphereRadius + 0.35);
         }
 
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(pt.screenX, pt.screenY, Math.max(0.1, r), 0, Math.PI * 2);
+        ctx.arc(pt.screenX, pt.screenY, r, 0, Math.PI * 2);
         ctx.fill();
 
         // Extra specular glint on front-facing highlighted/magnified nodes
         if (pt.currentScale > 1.2 && pt.z > -10) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.90)';
+          ctx.fillStyle = '#FFFFFF';
           ctx.beginPath();
-          ctx.arc(pt.screenX - glintOffsetX, pt.screenY - glintOffsetY, Math.max(0.1, r * 0.22), 0, Math.PI * 2);
+          ctx.arc(pt.screenX - glintOffsetX, pt.screenY - glintOffsetY, Math.max(0.1, r * 0.25), 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -510,17 +480,15 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
         const d = projectedDebris[i];
         if (d.z >= 0) {
           const depthNorm = (d.z + currentSphereRadius * 0.5) / (currentSphereRadius * 1.5);
-          ctx.globalAlpha = isLight
-            ? Math.min(1.0, Math.max(0.85, depthNorm * 1.05))
-            : Math.min(0.92, Math.max(0.45, depthNorm));
-          ctx.fillStyle = isLight ? d.lightColor : d.darkColor;
-          const sz = isLight ? d.size * 1.35 : d.size;
+          ctx.globalAlpha = Math.min(1.0, Math.max(0.80, depthNorm * 1.15));
+          ctx.fillStyle = d.darkColor;
+          const sz = Math.max(0.8, d.size * 1.30);
           ctx.fillRect(d.screenX - sz / 2, d.screenY - sz / 2, sz, sz);
 
-          // Specular glint on prominent debris particles for sparkling brightness in light mode
-          if (isLight && sz > 2.5) {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(d.screenX - sz * 0.22, d.screenY - sz * 0.22, sz * 0.44, sz * 0.44);
+          // Specular sparkle on prominent particles
+          if (sz > 2.2) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(d.screenX - sz * 0.2, d.screenY - sz * 0.2, sz * 0.4, sz * 0.4);
           }
         }
       }
@@ -539,8 +507,8 @@ export const NeuralOrb = ({ size = 460, className = '' }) => {
     };
   }, [size]);
 
-  const extraX = Math.round(Math.min(300, Math.max(40, size * 0.3)));
-  const extraY = Math.round(Math.min(200, Math.max(30, size * 0.2)));
+  const extraX = Math.round(Math.min(360, Math.max(50, size * 0.32)));
+  const extraY = Math.round(Math.min(260, Math.max(40, size * 0.22)));
   const canvasWidth = size + extraX;
   const canvasHeight = size + extraY;
 

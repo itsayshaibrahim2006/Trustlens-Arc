@@ -463,76 +463,21 @@ export default function HeroSection({ onEnterDashboard }) {
 
         {/* =========================================================================
             COMMAND ROOM ARRIVAL OVERLAY (Reveals cleanly when flight reaches 100%)
-            Notice: All outdated text buttons removed; Interactive 3D Neural Orb embedded!
+            Pure Cinematic 3D Neural Art Orb Centerpiece (All text removed per instruction)
             ========================================================================= */}
         <div 
           ref={commandCenterOverlayRef}
-          className="absolute inset-0 z-20 flex flex-col items-center justify-center pt-16 pb-8 px-6 text-center will-change-transform pointer-events-none"
+          className="absolute inset-0 z-20 flex items-center justify-center p-4 will-change-transform pointer-events-none select-none"
           style={{ opacity: 0 }}
         >
-          <div className="max-w-4xl mx-auto flex flex-col items-center">
+          {/* Big Interactive 3D Neural Art Orb with Multi-Layer Volumetric Glow */}
+          <div className="relative flex items-center justify-center pointer-events-auto transform scale-100 sm:scale-105 lg:scale-115 transition-transform">
+            {/* Multi-layered radial ambient glow backdrop */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/35 via-purple-600/30 to-amber-500/25 rounded-full blur-[100px] transform scale-125 pointer-events-none" />
+            <div className="absolute inset-0 bg-cyan-400/25 rounded-full blur-[160px] transform scale-150 pointer-events-none" />
             
-            {/* Status Eyebrow Badge */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-950/80 border border-cyan-400/40 text-cyan-300 text-xs font-mono backdrop-blur-xl shadow-lg shadow-cyan-950/60 mb-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="font-semibold tracking-wider uppercase text-[11px]">
-                Command Center Online • All Sensors Active
-              </span>
-              <span className="text-cyan-700">|</span>
-              <span className="text-slate-400 text-[10px]">Zero Latency Stream</span>
-            </div>
-
-            {/* Interactive 3D Neural Art Orb (Positioned precisely in the central holographic chamber) */}
-            <div className="relative flex items-center justify-center -my-3 pointer-events-auto">
-              {/* Radial ambient glow backdrop */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/25 via-blue-500/20 to-purple-500/25 rounded-full blur-3xl transform scale-125 pointer-events-none" />
-              
-              {/* 3D Neural Orb Component */}
-              <NeuralOrb size={420} className="relative z-20 drop-shadow-[0_0_60px_rgba(0,240,255,0.45)]" />
-            </div>
-
-            {/* Dramatic Command Center Editorial Headline */}
-            <h2 className="font-editorial text-3xl sm:text-5xl md:text-6xl font-normal text-white tracking-tight leading-[1.06] mb-2 drop-shadow-[0_4px_30px_rgba(0,0,0,0.95)]">
-              Autonomous Threat Intel.<br />
-              <span className="italic font-light bg-gradient-to-r from-white via-cyan-200 to-blue-400 bg-clip-text text-transparent">
-                Every Vector Under Watch.
-              </span>
-            </h2>
-
-            {/* Forensic Mission Brief */}
-            <p className="max-w-xl mx-auto text-xs sm:text-sm text-slate-300 font-light leading-relaxed mb-4 drop-shadow-md">
-              Multi-modal verification engines continuously scanning biometric voice streams, synthetic PDF contracts, and quarantined quishing URLs. Threat readiness at 99.8%.
-            </p>
-
-            {/* Telemetry Micro-Stat Pills */}
-            <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5 mb-4 text-xs font-mono">
-              <div className="px-3.5 py-1.5 rounded-full bg-slate-900/70 border border-slate-700/60 backdrop-blur-md text-slate-200 flex items-center gap-2 shadow-inner">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                <span className="text-slate-400 uppercase text-[10px]">Latency:</span>
-                <span className="text-cyan-300 font-bold">42 ms</span>
-              </div>
-
-              <div className="px-3.5 py-1.5 rounded-full bg-slate-900/70 border border-slate-700/60 backdrop-blur-md text-slate-200 flex items-center gap-2 shadow-inner">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-slate-400 uppercase text-[10px]">Defense Vectors:</span>
-                <span className="text-emerald-300 font-bold">5 Active</span>
-              </div>
-
-              <div className="px-3.5 py-1.5 rounded-full bg-slate-900/70 border border-slate-700/60 backdrop-blur-md text-slate-200 flex items-center gap-2 shadow-inner">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                <span className="text-slate-400 uppercase text-[10px]">Global Feeds:</span>
-                <span className="text-blue-300 font-bold">12 Connected</span>
-              </div>
-            </div>
-
-            {/* Subtle, sleek scroll cue guiding smoothly to Sentinel Hub */}
-            <div className="flex flex-col items-center gap-1 text-cyan-400/80 select-none">
-              <span className="text-[10px] font-mono tracking-[0.25em] uppercase text-cyan-300/80">
-                Scroll to enter Sentinel Hub
-              </span>
-              <ChevronDown className="w-4 h-4 text-cyan-400 animate-bounce" />
-            </div>
-
+            {/* Big 3D Neural Orb Component */}
+            <NeuralOrb size={560} className="relative z-20 drop-shadow-[0_0_80px_rgba(0,240,255,0.65)]" />
           </div>
         </div>
 
