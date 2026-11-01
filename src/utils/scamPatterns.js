@@ -1,52 +1,71 @@
-// Comprehensive heuristic patterns for job scam, resume forgery, and malicious link detection
+// Comprehensive forensic patterns for Job Scam & CV Authenticator
 
+// Pillar 1: Advance-Fee & Fake Equipment Check Fraud
 export const ADVANCE_FEE_PATTERNS = [
   /equipment\s+deposit/i,
   /cashier'?s?\s+check/i,
   /wire\s+transfer/i,
-  /processing\s+fee/i,
-  /starter\s+kit/i,
   /home\s+office\s+allowance\s+check/i,
-  /check\s+deposit/i,
-  /purchase\s+software\s+from\s+vendor/i,
+  /purchase\s+software\s+from\s+(?:our\s+)?(?:approved\s+)?vendor/i,
   /reimbursement\s+check/i,
   /send\s+money\s+back/i,
   /overpayment/i,
-  /western\s+union/i,
-  /moneygram/i,
-  /zelle/i,
-  /venmo/i
+  /deposit\s+the\s+check\s+and\s+wire/i,
+  /approved\s+it\s+vendor/i,
+  /security\s+deposit\s+for\s+laptop/i,
+  /training\s+fee\s+deposit/i,
+  /starter\s+kit/i,
+  /processing\s+fee/i,
+  /check\s+deposit/i
 ];
 
+export const PAYMENT_APP_PATTERNS = [
+  /\bzelle\b/i,
+  /\bvenmo\b/i,
+  /\bwestern\s+union\b/i,
+  /\bmoneygram\b/i,
+  /\bbitcoin\s+wallet\b/i,
+  /\busdt\b/i,
+  /\bcashapp\b/i,
+  /\bgift\s+cards?\b/i
+];
+
+// Pillar 2: Unsanctioned Communication Channels
 export const UNSANCTIONED_COMM_PATTERNS = [
+  /interview\s+(?:on|via|through)\s+telegram/i,
+  /interview\s+(?:on|via|through)\s+whatsapp/i,
+  /contact\s+(?:us\s+)?(?:on|via|through)\s+signal/i,
+  /message\s+our\s+hr\s+on\s+(?:telegram|whatsapp)/i,
+  /telegram\s+id/i,
+  /whatsapp\s+interview/i,
   /telegram(?:\.me|\.org|\s*:\s*|@)/i,
   /whatsapp(?:\.com|\s*:\s*|\+)/i,
   /signal(?:\.org|\s*:\s*)/i,
   /viber/i,
-  /skype(?:\s*id|\s*:\s*)/i,
-  /@(?:[a-zA-Z0-9_-]+careers|[a-zA-Z0-9_-]+recruiting|[a-zA-Z0-9_-]+hr)/i,
-  /interview\s+(?:on|via)\s+(?:telegram|whatsapp|signal|hangouts)/i
+  /skype(?:\s*id|\s*:\s*)/i
 ];
 
-export const FORGERY_PRODUCER_PATTERNS = [
-  /canva/i,
-  /piktochart/i,
-  /visme/i,
-  /venngage/i,
-  /crello/i,
-  /desygner/i,
-  /snappa/i,
-  /skia\/pdf/i
+export const UNSANCTIONED_HANDLE_REGEX = /@[a-zA-Z0-9_]*(?:careers|recruiting|recruitment|hr_team|google_hr|jobs)[a-zA-Z0-9_]*/i;
+
+// Pillar 3: Corporate Domains & Free Webmail Impersonation
+export const OFFICIAL_GOOGLE_DOMAINS = [
+  'google.com',
+  'alphabet.com',
+  'deepmind.com',
+  'waymo.com',
+  'wing.com'
 ];
 
-export const SUSPICIOUS_EMAIL_DOMAINS = [
+export const FREE_WEBMAIL_DOMAINS = [
   'gmail.com',
+  'outlook.com',
   'yahoo.com',
   'hotmail.com',
-  'outlook.com',
-  'aol.com',
   'protonmail.com',
   'proton.me',
+  'aol.com',
+  'icloud.com',
+  'zohomail.com',
   'zoho.com',
   'mail.com',
   'yandex.com',
@@ -55,6 +74,8 @@ export const SUSPICIOUS_EMAIL_DOMAINS = [
 
 export const TRUSTED_CORP_DOMAINS = [
   'google.com',
+  'alphabet.com',
+  'deepmind.com',
   'stripe.com',
   'apple.com',
   'microsoft.com',
@@ -67,6 +88,89 @@ export const TRUSTED_CORP_DOMAINS = [
   'airbnb.com',
   'salesforce.com'
 ];
+
+// Pillar 4: Document Template & Consumer Forgery Metadata
+export const CONSUMER_FORGERY_PRODUCERS = [
+  'canva',
+  'piktochart',
+  'visme',
+  'venngage',
+  'desygner',
+  'crello',
+  'snappa',
+  'fotor',
+  'ilovepdf',
+  'smallpdf',
+  'sejda',
+  'wps writer',
+  'skia/pdf'
+];
+
+export const ENTERPRISE_ATS_SIGNATURES = [
+  'workday',
+  'greenhouse',
+  'docusign',
+  'adobe sign',
+  'google docs',
+  'icims',
+  'lever',
+  'smartrecruiters'
+];
+
+// Pillar 5: Artificial Urgency & Compensation Anomalies
+export const URGENCY_PATTERNS = [
+  /immediate\s+start/i,
+  /urgent\s+response\s+required\s+within\s+24\s+hours/i,
+  /urgent\s+response/i,
+  /within\s+24\s+hours/i,
+  /confidential\s+deposit\s+required/i,
+  /confidential\s+deposit/i,
+  /limited\s+slots\s+remaining/i,
+  /limited\s+slots/i,
+  /respond\s+immediately\s+to\s+secure/i,
+  /no\s+technical\s+interview\s+required/i,
+  /no\s+technical\s+interview/i,
+  /no\s+interview\s+needed/i
+];
+
+export const STANDARD_EMPLOYMENT_CLAUSES = [
+  /\bw-4\b/i,
+  /\bw-2\b/i,
+  /\bi-9\b/i,
+  /at-will\s+employment/i,
+  /background\s+check/i,
+  /benefits?\s+enrollment/i,
+  /tax\s+withholding/i,
+  /provident\s+fund/i,
+  /gratuity/i,
+  /confidentiality\s+agreement/i,
+  /equal\s+opportunity\s+employer/i
+];
+
+// Pillar 6: Known Tech Stack to Language Mapping for GitHub Cross-Check
+export const TECH_LANGUAGE_MAP = {
+  'python': 'Python',
+  'java': 'Java',
+  'javascript': 'JavaScript',
+  'typescript': 'TypeScript',
+  'kotlin': 'Kotlin',
+  'jetpack compose': 'Kotlin',
+  'flutter': 'Dart',
+  'dart': 'Dart',
+  'react': 'JavaScript',
+  'react native': 'JavaScript',
+  'c++': 'C++',
+  'c#': 'C#',
+  'go': 'Go',
+  'golang': 'Go',
+  'rust': 'Rust',
+  'swift': 'Swift',
+  'html': 'HTML',
+  'css': 'CSS',
+  'glsl': 'GLSL',
+  'webgl': 'JavaScript',
+  'sql': 'PLpgSQL'
+};
 
 export const HIGH_RISK_TLDS = [
   'tk', 'ml', 'ga', 'cf', 'gq', 'ru', 'cn', 'xyz', 'top', 'buzz',
@@ -99,23 +203,13 @@ export const SUSPICIOUS_PATH_KEYWORDS = [
   'login',
   'signin',
   'verify',
-  'verification',
   'secure',
-  'security',
-  'account',
   'update',
-  'confirm',
-  'confirmation',
-  'auth',
-  'authenticate',
-  'banking',
   'wallet',
-  'recover',
-  'password',
-  'credential',
-  'session',
-  'portal',
-  'resolution'
+  'banking',
+  'account',
+  'confirm',
+  'auth'
 ];
 
 export const URL_SHORTENERS = [

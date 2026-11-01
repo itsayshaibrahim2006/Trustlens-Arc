@@ -562,3 +562,4 @@ const SRM_KERNEL_EDGE = [
        : 'Confirmed Authentic Video. Natural motion blur, consistent frame-to-frame optical flow, and authentic sensor noise verified.'
    };
  }
+
