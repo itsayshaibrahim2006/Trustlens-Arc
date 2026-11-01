@@ -131,6 +131,22 @@ export default function ScanBayVehicle() {
   const cvGoogleReg = cvCustomResult?.googleRegistry || (isCvScam ? '0 Match (Scam)' : 'Verified Corporate');
   const cvGithubCommits = cvCustomResult?.githubCommits || (isCvScam ? 'Inorganic Claims' : '3,410 Commits Valid');
 
+  const defaultFailureMetrics = [
+    { label: 'Recruiter Domain', value: '@google-careers.tk (Spoofed)', risk: 'high' },
+    { label: 'Interview Channel', value: 'Telegram @google_hr (Unsanctioned)', risk: 'high' },
+    { label: 'Equipment Fee', value: '$4,850 CashApp Check (Scam)', risk: 'high' },
+    { label: 'Document Metadata', value: 'Canva Export (Consumer Forgery)', risk: 'high' }
+  ];
+
+  const defaultSuccessMetrics = [
+    { label: 'Recruiter Domain', value: '@google.com (Enterprise ATS)', risk: 'pass' },
+    { label: 'Interview Channel', value: 'Google Meet (Enterprise Verified)', risk: 'pass' },
+    { label: 'Financial Terms', value: 'Direct Deposit / Zero Fee', risk: 'pass' },
+    { label: 'Statutory Audit', value: 'W-4 & Official Clauses Verified', risk: 'pass' }
+  ];
+
+  const activeCvMetrics = cvCustomResult?.metrics || (isCvScam ? defaultFailureMetrics : defaultSuccessMetrics);
+
   // =========================================================================
   // CARD 2: INTERACTIVE QR CODE & LINK DETONATOR STATE
   // =========================================================================
@@ -462,29 +478,43 @@ export default function ScanBayVehicle() {
               {/* Dynamic Finding Pills if real threats found */}
               {cvCustomResult?.findings?.length > 0 && (
                 <div className="mb-4 space-y-1.5">
-                  {cvCustomResult.findings.slice(0, 2).map((f, idx) => (
-                    <div key={idx} className="flex items-start gap-2 p-2 rounded-xl bg-slate-900/90 border border-red-500/30 text-[10px] font-mono text-slate-300">
-                      <span className="text-red-400 font-bold shrink-0">⚠ [{f.signal}]</span>
-                      <span className="text-slate-400">{f.detail}</span>
-                    </div>
-                  ))}
+                  {cvCustomResult.findings.slice(0, 3).map((f, idx) => {
+                    const isPass = f.risk === 'pass';
+                    return (
+                      <div 
+                        key={idx} 
+                        className={`flex items-start gap-2 p-2 rounded-xl text-[10px] font-mono ${
+                          isPass 
+                            ? 'bg-emerald-950/40 border border-emerald-500/30 text-emerald-200' 
+                            : 'bg-red-950/60 border border-red-500/40 text-red-200'
+                        }`}
+                      >
+                        <span className={`font-bold shrink-0 ${isPass ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {isPass ? '✔' : '⚠'} [{f.signal}]
+                        </span>
+                        <span className="text-slate-300">{f.detail}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
               {/* Forensic Signal Verification Points */}
-              <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-                <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
-                  <span className="text-slate-400">Google Registry:</span>
-                  <span className={isCvScam ? 'text-red-400 font-bold truncate ml-2' : 'text-emerald-400 font-bold truncate ml-2'}>
-                    {cvGoogleReg}
-                  </span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
-                  <span className="text-slate-400">GitHub API:</span>
-                  <span className={isCvScam ? 'text-red-400 font-bold truncate ml-2' : 'text-emerald-400 font-bold truncate ml-2'}>
-                    {cvGithubCommits}
-                  </span>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] font-mono">
+                {activeCvMetrics.map((m, idx) => {
+                  const isRed = m.risk === 'high';
+                  const isEmerald = m.risk === 'pass';
+                  return (
+                    <div key={idx} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between min-w-0">
+                      <span className="text-slate-400 shrink-0 mr-2">{m.label}:</span>
+                      <span className={`font-bold truncate text-right ${
+                        isRed ? 'text-red-400' : (isEmerald ? 'text-emerald-400' : 'text-amber-300')
+                      }`} title={m.value}>
+                        {m.value}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
             </div>

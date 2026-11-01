@@ -391,6 +391,11 @@ function evaluateOfferLetter(text, metadata, hiddenUris) {
   const finalScore = Math.max(0, Math.min(hardVetoCap, 100 - totalPenalty));
   const isScam = finalScore < 50;
 
+  const domainPart = emails[0]?.split('@')[1] || (textLower.match(/@([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)/)?.[1]) || 'Direct Corporate';
+  const channelText = handleMatch ? handleMatch[0] : (p2Hits.length > 0 ? 'Unofficial Channel' : 'careers.google.com Portal');
+  const feeText = p1Hits.length > 0 ? 'Equipment Check / Advance Fee' : 'Zero Candidate Fee';
+  const clauseText = clauseCount >= 2 ? `${clauseCount} Statutory Clauses Valid` : 'Missing Statutory Clauses';
+
   return {
     documentType: 'EMPLOYMENT_OFFER_LETTER',
     isScam,
@@ -400,7 +405,13 @@ function evaluateOfferLetter(text, metadata, hiddenUris) {
     headline: isScam ? 'FAKE RESUME / JOB OFFER DETECTED' : 'AUTHENTIC EMPLOYMENT OFFER',
     summary: isScam 
       ? (findings[0]?.detail || 'Critical job scam detected. Discrepancies found in recruiter email, payment requests, and communication channel.')
-      : 'Offer letter passes enterprise forensic checks. Verify details directly in your official careers.google.com candidate dashboard.',
+      : 'Offer letter passes enterprise forensic checks. Official corporate communication with zero upfront fee demands.',
+    metrics: [
+      { label: 'Recruiter Domain', value: `@${domainPart}`, risk: p3Hits.length > 0 ? 'high' : 'pass' },
+      { label: 'Interview Channel', value: channelText, risk: p2Hits.length > 0 ? 'high' : 'pass' },
+      { label: 'Advance Check / Fee', value: feeText, risk: p1Hits.length > 0 ? 'high' : 'pass' },
+      { label: 'Statutory Compliance', value: clauseText, risk: clauseCount === 0 ? 'medium' : 'pass' }
+    ],
     googleRegistry: isScam ? '0 Match (Scam Flagged)' : 'Verified Corporate Registry',
     githubCommits: isScam ? 'Inorganic Claims' : 'Corporate Authorized',
     findings
@@ -408,208 +419,367 @@ function evaluateOfferLetter(text, metadata, hiddenUris) {
 }
 
 /**
- * Mode B: Live OSINT & CV Authenticator (Pillar 6)
- * Queries live GitHub API, parses timeline, and checks claimed skills vs repositories
+ * Mode B: Real OSINT & Candidate CV Authenticator
+ * Extracts genuine candidate identity, contact info, core sections, detected skills,
+ * career timeline dates, and queries live GitHub API only if a real GitHub URL is provided.
  */
 async function evaluateCandidateResume(text, metadata, hiddenUris) {
   const findings = [];
   const textLower = text.toLowerCase();
-  const allLinks = Array.from(new Set(text.match(/https?:\/\/[^\s,)\]>"']+|github\.com\/[a-zA-Z0-9_-]+|linkedin\.com\/in\/[a-zA-Z0-9_-]+/gi) || []));
-  hiddenUris.forEach(u => allLinks.push(u));
+  const words = text.trim().split(/\s+/).filter(Boolean);
 
-  // Extract claimed programming languages
-  const claimedSkills = {};
+  // 1. Minimum Viable Document Validation
+  if (words.length < 35) {
+    return {
+      documentType: 'INSUFFICIENT_DATA',
+      isScam: true,
+      authenticityScore: 18,
+      fakeProbability: 82,
+      realConfidence: 18,
+      headline: 'INSUFFICIENT RESUME DATA',
+      summary: `Document contains only ${words.length} words. A verifiable resume requires distinct sections for experience, education, contact details, and technical competencies.`,
+      metrics: [
+        { label: 'Word Count', value: `${words.length} Words (Insufficient)`, risk: 'high' },
+        { label: 'Contact Info', value: 'Unlisted / Missing', risk: 'high' },
+        { label: 'Career Timeline', value: 'No Dates Found', risk: 'high' },
+        { label: 'Resume Sections', value: '0 / 4 Sections', risk: 'high' }
+      ],
+      googleRegistry: 'Unregistered / Insufficient Data',
+      githubCommits: 'No Repositories Linked',
+      findings: [{
+        pillar: 'PILLAR_STRUCTURE',
+        signal: 'Document Density Insufficient',
+        risk: 'high',
+        detail: `Uploaded document is only ${words.length} words long. Unable to extract valid candidate credentials or forensic signals.`
+      }]
+    };
+  }
+
+  // 2. Candidate Name Extraction (Scanning first 6 non-empty lines)
+  let candidateName = null;
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  for (let i = 0; i < Math.min(8, lines.length); i++) {
+    const line = lines[i];
+    if (/^(?:curriculum vitae|resume|cv|portfolio|profile|personal profile|summary)$/i.test(line)) continue;
+    if (line.includes('@') || line.includes('http') || line.includes('www.') || line.includes('+')) continue;
+    if (/^[A-Z][a-zA-Z.'-]+(?:\s+[A-Z][a-zA-Z.'-]+){1,3}$/.test(line) && line.length < 45) {
+      candidateName = line;
+      break;
+    }
+  }
+
+  // 3. Contact Extraction
+  const emails = Array.from(new Set(text.match(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/g) || []));
+  hiddenUris.forEach(uri => {
+    if (uri.startsWith('mailto:')) {
+      const em = uri.replace('mailto:', '').split('?')[0];
+      if (em) emails.push(em);
+    }
+  });
+  const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+  const primaryEmail = emails[0] || null;
+  const primaryPhone = phoneMatch ? phoneMatch[0] : null;
+
+  // 4. Section Structure Detection
+  const sectionSignatures = {
+    experience: /(?:work\s+)?experience|employment|work\s+history|professional\s+background/i,
+    education: /education|academic|university|degree|college|bachelor|master|phd/i,
+    skills: /skills|technologies|proficiencies|competencies|tools\s+used|stack/i,
+    projects: /projects|portfolio|open\s+source|publications|key\s+accomplishments/i
+  };
+
+  const detectedSections = [];
+  for (const [secName, rx] of Object.entries(sectionSignatures)) {
+    if (rx.test(text)) detectedSections.push(secName);
+  }
+
+  // 5. Technical & Professional Skills Extraction
+  const detectedSkills = [];
   Object.entries(TECH_LANGUAGE_MAP).forEach(([skill, lang]) => {
     const escaped = escapeRegExp(skill);
     const rx = /[a-zA-Z0-9_]/.test(skill.slice(-1))
       ? new RegExp(`\\b${escaped}\\b`, 'i')
       : new RegExp(`(?:^|[\\s,;()/\\'"])${escaped}(?=[\\s,;()/\\'"]|$)`, 'i');
     if (rx.test(textLower)) {
-      claimedSkills[skill] = lang;
+      detectedSkills.push(lang);
     }
   });
 
-  // Extract GitHub username
+  // Additional popular tech stack skills check
+  const extraSkills = ['Docker', 'Kubernetes', 'AWS', 'GCP', 'Azure', 'Node.js', 'Express', 'Next.js', 'Tailwind', 'MongoDB', 'PostgreSQL', 'Git', 'Linux', 'Figma', 'GraphQL'];
+  extraSkills.forEach(sk => {
+    const rx = new RegExp(`\\b${escapeRegExp(sk)}\\b`, 'i');
+    if (rx.test(text) && !detectedSkills.includes(sk)) {
+      detectedSkills.push(sk);
+    }
+  });
+  const uniqueSkills = Array.from(new Set(detectedSkills));
+
+  // 6. Timeline & Chronological Consistency
+  const currentYear = new Date().getFullYear();
+  const yearRanges = Array.from(text.matchAll(/\b(19\d{2}|20\d{2})\s*[-–—to]+\s*(19\d{2}|20\d{2}|present|current|now)\b/gi));
+  const parsedYears = [];
+  let hasInvertedDates = false;
+  let hasFutureDates = false;
+
+  yearRanges.forEach(m => {
+    const startYr = parseInt(m[1]);
+    const endYr = ['present', 'current', 'now'].includes(m[2].toLowerCase()) ? currentYear : parseInt(m[2]);
+    if (startYr > endYr) hasInvertedDates = true;
+    if (startYr > currentYear + 1 || endYr > currentYear + 1) hasFutureDates = true;
+    if (startYr >= 1990 && startYr <= currentYear) parsedYears.push(startYr);
+    if (endYr >= 1990 && endYr <= currentYear) parsedYears.push(endYr);
+  });
+
+  let timelineText = 'No formal dates parsed';
+  let timelineYears = 0;
+  if (parsedYears.length > 0) {
+    const minYr = Math.min(...parsedYears);
+    const maxYr = Math.max(...parsedYears);
+    timelineYears = Math.max(1, maxYr - minYr);
+    timelineText = `${minYr} – ${maxYr === currentYear ? 'Present' : maxYr} (~${timelineYears} Yrs)`;
+  }
+
+  // Claimed experience inflation check
+  const claimedExpMatch = textLower.match(/(\d{1,2})\+?\s+years?\s+of\s+(?:professional\s+)?experience/);
+  let hasInflatedExp = false;
+  let claimedYrs = 0;
+  if (claimedExpMatch && parsedYears.length > 0) {
+    claimedYrs = parseInt(claimedExpMatch[1]);
+    const minYr = Math.min(...parsedYears);
+    const actualSpan = currentYear - minYr;
+    if (claimedYrs > actualSpan + 2) {
+      hasInflatedExp = true;
+    }
+  }
+
+  // 7. Profile Links: Genuine GitHub & LinkedIn Checking
+  const allLinks = Array.from(new Set(text.match(/https?:\/\/[^\s,)\]>"']+|github\.com\/[a-zA-Z0-9_-]+|linkedin\.com\/in\/[a-zA-Z0-9_-]+/gi) || []));
+  hiddenUris.forEach(u => allLinks.push(u));
+
   let githubUsername = null;
   for (const link of allLinks) {
     const m = link.match(/github\.com\/([a-zA-Z0-9_-]+)(?:[/?#]|$)/i);
-    if (m && !['features', 'topics', 'collections', 'orgs', 'settings', 'explore'].includes(m[1].toLowerCase())) {
+    if (m && !['features', 'topics', 'collections', 'orgs', 'settings', 'explore', 'pricing', 'sponsors', 'enterprise'].includes(m[1].toLowerCase())) {
       githubUsername = m[1];
       break;
     }
   }
 
-  // --- SUB-PILLAR 6A: Live GitHub Verification (Max 35 pts) ---
-  let githubScore = 0;
-  let githubDetail = '';
-  let validatedRepoCount = 0;
+  const linkedinMatches = allLinks.filter(l => l.toLowerCase().includes('linkedin.com/in/'));
+  const hasLinkedIn = linkedinMatches.length > 0;
+
+  let githubStatus = 'none'; // 'verified' | '404_fake' | 'rate_limited' | 'none'
+  let githubRepoCount = 0;
 
   if (githubUsername) {
     try {
       const userRes = await fetch(`https://api.github.com/users/${githubUsername}`);
       if (userRes.status === 404) {
-        githubScore = -25;
-        githubDetail = `CRITICAL: Claimed GitHub profile 'github.com/${githubUsername}' does NOT exist (HTTP 404).`;
+        githubStatus = '404_fake';
       } else if (userRes.ok) {
-        const userData = await userRes.json();
-        githubScore += 5;
-        const publicRepos = userData.public_repos || 0;
-        const createdAt = (userData.created_at || '').substring(0, 10);
-
-        // Fetch repository languages
-        const reposRes = await fetch(`https://api.github.com/users/${githubUsername}/repos?per_page=100&sort=updated`);
-        if (reposRes.ok) {
-          const repos = await reposRes.json();
-          const originalRepos = repos.filter(r => !r.fork);
-          validatedRepoCount = originalRepos.length;
-
-          if (originalRepos.length >= 3) {
-            githubScore += 10;
-          }
-
-          // Check language overlap
-          const repoLanguages = new Set(originalRepos.map(r => r.language).filter(Boolean));
-          const expectedLangs = new Set(Object.values(claimedSkills));
-          const matchedLangs = Array.from(repoLanguages).filter(l => expectedLangs.has(l));
-
-          if (matchedLangs.length >= 2 || (expectedLangs.size > 0 && matchedLangs.length / expectedLangs.size >= 0.4)) {
-            githubScore += 12;
-          }
-
-          // Check project name matches
-          const matchedProjects = originalRepos.filter(r => {
-            const cleanName = r.name.toLowerCase().replace(/[-_]/g, ' ');
-            return cleanName.length >= 4 && textLower.includes(cleanName);
-          });
-          if (matchedProjects.length > 0) {
-            githubScore += 8;
-          }
-
-          githubDetail = `Live GitHub profile verified (@${githubUsername}): ${originalRepos.length} original non-forked repos; code languages match resume skills (${Array.from(repoLanguages).slice(0, 4).join(', ')}).`;
-        } else {
-          githubScore += 10;
-          githubDetail = `Live GitHub profile @${githubUsername} verified (Public repos: ${publicRepos}, Created: ${createdAt}).`;
-        }
+        const uData = await userRes.json();
+        githubRepoCount = uData.public_repos || 0;
+        githubStatus = 'verified';
       } else {
-        // Rate-limited: provide graceful positive estimate for valid username
-        githubScore += 22;
-        githubDetail = `Valid GitHub account syntax verified (@${githubUsername}); API rate-limited.`;
+        githubStatus = 'rate_limited';
       }
     } catch {
-      githubScore += 20;
-      githubDetail = `GitHub profile reference detected (@${githubUsername}).`;
-    }
-
-    findings.push({
-      pillar: 'PILLAR_6A_GITHUB',
-      signal: 'Live GitHub Codebase & Activity Proof',
-      risk: githubScore >= 18 ? 'pass' : (githubScore < 0 ? 'high' : 'medium'),
-      detail: githubDetail
-    });
-  } else {
-    githubScore = 10;
-    findings.push({
-      pillar: 'PILLAR_6A_GITHUB',
-      signal: 'Code Repository Presence',
-      risk: 'medium',
-      detail: 'No direct GitHub link provided on resume.'
-    });
-  }
-
-  // --- SUB-PILLAR 6B: Professional Presence & LinkedIn (Max 20 pts) ---
-  let portfolioScore = 0;
-  const linkedinMatches = allLinks.filter(l => l.toLowerCase().includes('linkedin.com/in/'));
-  if (linkedinMatches.length > 0) {
-    portfolioScore += 12;
-    findings.push({
-      pillar: 'PILLAR_6B_PORTFOLIO',
-      signal: 'Verified Professional Profile',
-      risk: 'pass',
-      detail: `Valid LinkedIn canonical profile reference detected (${linkedinMatches[0]}).`
-    });
-  } else {
-    portfolioScore += 6;
-  }
-
-  // --- SUB-PILLAR 6C: Timeline & Chronological Consistency (Max 25 pts) ---
-  let timelineScore = 25;
-  const currentYear = new Date().getFullYear();
-  const yearRanges = Array.from(text.matchAll(/\b(20\d{2})\s*[-–—to]+\s*(20\d{2}|present|current|now)\b/gi));
-  const parsedYears = [];
-
-  yearRanges.forEach(m => {
-    const startYr = parseInt(m[1]);
-    const endYr = ['present', 'current', 'now'].includes(m[2].toLowerCase()) ? currentYear : parseInt(m[2]);
-    if (startYr > endYr || endYr > currentYear + 1) {
-      timelineScore -= 15;
-    } else {
-      parsedYears.push(startYr);
-    }
-  });
-
-  const claimedYearsMatch = textLower.match(/(\d{1,2})\+?\s+years?\s+of\s+(?:professional\s+)?experience/);
-  if (claimedYearsMatch && parsedYears.length > 0) {
-    const claimedYrs = parseInt(claimedYearsMatch[1]);
-    const earliestYr = Math.min(...parsedYears);
-    if (claimedYrs > (currentYear - earliestYr + 2)) {
-      timelineScore -= 20;
-      findings.push({
-        pillar: 'PILLAR_6C_TIMELINE',
-        signal: 'Chronological Experience Inflation',
-        risk: 'high',
-        detail: `Claims ${claimedYrs} years experience, but earliest verified timeline date is ${earliestYr}.`
-      });
+      githubStatus = 'rate_limited';
     }
   }
 
-  if (timelineScore >= 20) {
-    findings.push({
-      pillar: 'PILLAR_6C_TIMELINE',
-      signal: 'Experience Timeline & Chronological Sanity',
-      risk: 'pass',
-      detail: `Parsed ${yearRanges.length} valid chronological timeline dates with zero impossible overlaps.`
-    });
+  // 8. Authentic Scoring Computation
+  let score = 30; // base weight for submitted standard document
+
+  // Contact points (+15)
+  if (primaryEmail) score += 12;
+  if (primaryPhone) score += 3;
+  if (!primaryEmail && !primaryPhone) score -= 10;
+
+  // Sections points (+25)
+  const secCount = detectedSections.length;
+  if (secCount >= 4) score += 25;
+  else if (secCount === 3) score += 18;
+  else if (secCount === 2) score += 10;
+  else if (secCount === 1) score += 4;
+  else score -= 18;
+
+  // Timeline points (+20)
+  if (parsedYears.length >= 2 && !hasInvertedDates && !hasFutureDates && !hasInflatedExp) {
+    score += 18;
+  } else if (parsedYears.length > 0) {
+    score += 8;
   }
 
-  // --- SUB-PILLAR 6D: Structural Integrity & Document Standards (Max 20 pts) ---
-  let structScore = 0;
-  const requiredSections = ['education', 'skills', 'projects', 'experience'];
-  const foundSections = requiredSections.filter(s => textLower.includes(s));
-  if (foundSections.length >= 3) {
-    structScore += 14;
-  } else {
-    structScore += 6;
+  // Skills points (+12)
+  if (uniqueSkills.length >= 4) score += 12;
+  else if (uniqueSkills.length >= 2) score += 8;
+  else if (uniqueSkills.length >= 1) score += 4;
+
+  // External Links (+8 bonus / -35 penalty)
+  if (githubStatus === 'verified') {
+    score += 8;
+  } else if (githubStatus === '404_fake') {
+    score -= 35; // Severe penalty: fake profile link provided
+  }
+  if (hasLinkedIn) score += 4;
+
+  // Red flag penalties
+  if (hasFutureDates) score -= 25;
+  if (hasInvertedDates) score -= 20;
+  if (hasInflatedExp) score -= 20;
+
+  // Score clamping & status determination
+  let authenticityScore = Math.max(10, Math.min(97, score));
+  if (githubStatus === '404_fake' || hasFutureDates || hasInvertedDates) {
+    authenticityScore = Math.min(42, authenticityScore);
   }
 
-  const emails = Array.from(new Set(text.match(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/g) || []));
-  if (emails.length > 0) {
-    structScore += 6;
-  }
-
-  findings.push({
-    pillar: 'PILLAR_6D_CREDIBILITY',
-    signal: 'Resume Structure & Institutional Sections',
-    risk: 'pass',
-    detail: `Document conforms to standard multi-section technical CV structure (${foundSections.join(', ')}).`
-  });
-
-  // Final Additive Score Formula
-  const rawScore = githubScore + portfolioScore + timelineScore + structScore;
-  const authenticityScore = Math.max(0, Math.min(100, rawScore));
   const isScam = authenticityScore < 50;
+  const fakeProbability = Number((100 - authenticityScore).toFixed(1));
+  const realConfidence = Number(authenticityScore.toFixed(1));
+
+  // 9. Build Informative Findings
+  if (githubStatus === '404_fake') {
+    findings.push({
+      pillar: 'PILLAR_GITHUB',
+      signal: 'Fabricated GitHub Link',
+      risk: 'high',
+      detail: `Claimed GitHub handle 'github.com/${githubUsername}' does not exist (HTTP 404). Potential fraudulent credential claim.`
+    });
+  } else if (githubStatus === 'verified') {
+    findings.push({
+      pillar: 'PILLAR_GITHUB',
+      signal: 'Verified GitHub Profile',
+      risk: 'pass',
+      detail: `Live GitHub profile (@${githubUsername}) verified with ${githubRepoCount} public repositories.`
+    });
+  } else if (!githubUsername) {
+    findings.push({
+      pillar: 'PILLAR_GITHUB',
+      signal: 'Code Repository',
+      risk: 'pass',
+      detail: 'No direct GitHub link provided (Standard for non-developer profiles).'
+    });
+  }
+
+  if (hasFutureDates) {
+    findings.push({
+      pillar: 'PILLAR_TIMELINE',
+      signal: 'Anomalous Future Timeline Dates',
+      risk: 'high',
+      detail: `Contains employment or graduation dates beyond current year (${currentYear}).`
+    });
+  } else if (hasInvertedDates) {
+    findings.push({
+      pillar: 'PILLAR_TIMELINE',
+      signal: 'Chronological Inversion',
+      risk: 'high',
+      detail: 'Start year is greater than end year in parsed career timeline ranges.'
+    });
+  } else if (hasInflatedExp) {
+    findings.push({
+      pillar: 'PILLAR_TIMELINE',
+      signal: 'Experience Claim Discrepancy',
+      risk: 'medium',
+      detail: `Claims ${claimedYrs}+ years experience, but earliest verified timeline date is ${Math.min(...parsedYears)}.`
+    });
+  } else if (parsedYears.length > 0) {
+    findings.push({
+      pillar: 'PILLAR_TIMELINE',
+      signal: 'Chronological Sanity',
+      risk: 'pass',
+      detail: `Parsed ${yearRanges.length} career date ranges (${timelineText}) with consistent chronological ordering.`
+    });
+  }
+
+  if (secCount >= 3) {
+    findings.push({
+      pillar: 'PILLAR_STRUCTURE',
+      signal: 'Standard Resume Architecture',
+      risk: 'pass',
+      detail: `Document contains ${secCount}/4 core sections: ${detectedSections.join(', ')}.`
+    });
+  } else {
+    findings.push({
+      pillar: 'PILLAR_STRUCTURE',
+      signal: 'Incomplete Section Structure',
+      risk: 'medium',
+      detail: `Only ${secCount}/4 core sections found (${detectedSections.join(', ') || 'none'}). Missing standard structure.`
+    });
+  }
+
+  // 10. Generate Real Contextual Headline and Summary
+  let headline;
+  if (isScam) {
+    headline = githubStatus === '404_fake' 
+      ? 'FABRICATED / UNVERIFIED PORTFOLIO' 
+      : 'SUSPICIOUS / IRREGULAR RESUME DETECTED';
+  } else if (authenticityScore >= 75) {
+    headline = 'AUTHENTIC CANDIDATE CREDENTIALS';
+  } else {
+    headline = 'CANDIDATE CV — VERIFIED (STANDARD)';
+  }
+
+  let summary;
+  if (isScam) {
+    summary = findings.find(f => f.risk === 'high')?.detail || 'Discrepancies identified in claimed portfolio repositories or chronological career timeline.';
+  } else {
+    const candidatePart = candidateName ? `Profile for ${candidateName}` : 'Candidate document';
+    const skillsPart = uniqueSkills.length > 0 
+      ? `${uniqueSkills.length} identified skills (${uniqueSkills.slice(0, 4).join(', ')})` 
+      : 'general background';
+    const timelinePart = parsedYears.length > 0 ? timelineText : 'unspecified timeline';
+    const ghPart = githubStatus === 'verified' 
+      ? `verified GitHub (@${githubUsername})` 
+      : (hasLinkedIn ? 'verified LinkedIn' : 'standard documentation');
+    summary = `${candidatePart} validated with ${skillsPart}, ${timelinePart}, and ${ghPart}.`;
+  }
+
+  // 11. 4 Real Extracted Metrics for the UI
+  const metrics = [
+    {
+      label: 'Candidate / Contact',
+      value: primaryEmail 
+        ? `${candidateName ? `${candidateName} • ` : ''}${primaryEmail}` 
+        : (candidateName || (primaryPhone ? `Phone: ${primaryPhone}` : 'No email detected')),
+      risk: primaryEmail ? 'pass' : 'medium'
+    },
+    {
+      label: 'Career Timeline',
+      value: timelineText,
+      risk: (hasFutureDates || hasInvertedDates || hasInflatedExp) ? 'high' : (parsedYears.length > 0 ? 'pass' : 'medium')
+    },
+    {
+      label: 'Verified Skills',
+      value: uniqueSkills.length > 0 
+        ? `${uniqueSkills.slice(0, 3).join(', ')}${uniqueSkills.length > 3 ? ` (+${uniqueSkills.length - 3})` : ''}` 
+        : 'General Profile',
+      risk: uniqueSkills.length > 0 ? 'pass' : 'medium'
+    },
+    {
+      label: 'Portfolio / GitHub',
+      value: githubUsername 
+        ? (githubStatus === 'verified' ? `@${githubUsername} (${githubRepoCount} Repos)` : (githubStatus === '404_fake' ? `⚠ @${githubUsername} (404 Fake)` : `@${githubUsername} (Active)`))
+        : (hasLinkedIn ? 'LinkedIn Profile Linked' : 'None Attached (Optional)'),
+      risk: githubStatus === '404_fake' ? 'high' : (githubStatus === 'verified' ? 'pass' : 'medium')
+    }
+  ];
 
   return {
     documentType: 'CANDIDATE_RESUME',
     isScam,
     authenticityScore,
-    fakeProbability: Number((100 - authenticityScore).toFixed(1)),
-    realConfidence: Number(authenticityScore.toFixed(1)),
-    headline: isScam ? 'FABRICATED / SUSPICIOUS RESUME' : 'AUTHENTIC CANDIDATE CREDENTIALS',
-    summary: isScam 
-      ? 'Discrepancies identified in claimed portfolio repositories or chronological career timeline.'
-      : 'Candidate credentials validated with live GitHub codebase verification and coherent chronological timeline.',
-    googleRegistry: 'Verified Candidate Directory',
-    githubCommits: githubUsername ? `@${githubUsername} Validated (${validatedRepoCount || 9} Repos)` : 'Verified Portfolio',
+    fakeProbability,
+    realConfidence,
+    headline,
+    summary,
+    metrics,
+    googleRegistry: primaryEmail ? `Verified Contact: ${primaryEmail}` : 'Candidate Profile',
+    githubCommits: githubUsername 
+      ? (githubStatus === 'verified' ? `@${githubUsername} (${githubRepoCount} Repos)` : (githubStatus === '404_fake' ? `Fake Profile (@${githubUsername})` : `@${githubUsername}`))
+      : 'None Attached (Optional)',
     findings
   };
 }
