@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Sparkles, 
   ArrowRight,
   Play,
   ChevronDown
 } from 'lucide-react';
+import NeuralOrb from './NeuralOrb.jsx';
 
 const TOTAL_FRAMES = 240;
 
@@ -28,6 +29,7 @@ export default function HeroSection({ onEnterDashboard }) {
   // DOM Refs for Direct Style Mutation (Zero React Re-render Overhead)
   const corridorOverlayRef = useRef(null);
   const skyCardRef = useRef(null);
+  const stepperRef = useRef(null);
   const bottomWidgetRef = useRef(null);
   const bottomCaptionRef = useRef(null);
   const commandCenterOverlayRef = useRef(null);
@@ -55,6 +57,7 @@ export default function HeroSection({ onEnterDashboard }) {
       images[0] = firstImg;
       setIsReady(true);
       drawFrame(0);
+      lastDrawnFrameRef.current = 0;
     };
 
     // Prioritize keyframes every 4th frame for instant scrub response
@@ -85,7 +88,7 @@ export default function HeroSection({ onEnterDashboard }) {
           
           // If user is currently looking at this frame or nearby, render it
           const curFrame = lastDrawnFrameRef.current;
-          if (Math.abs(curFrame - frameIdx) <= 1) {
+          if (curFrame >= 0 && Math.abs(curFrame - frameIdx) <= 1) {
             drawFrame(curFrame);
           }
           pumpQueue();
@@ -118,7 +121,7 @@ export default function HeroSection({ onEnterDashboard }) {
       const next = images[index + offset];
       if (next?.complete && next?.naturalWidth > 0) return next;
     }
-    return images[0] || null;
+    return (images[0]?.complete && images[0]?.naturalWidth > 0) ? images[0] : null;
   };
 
   // 2. High-Performance Canvas Draw (No layout thrashing)
@@ -128,11 +131,18 @@ export default function HeroSection({ onEnterDashboard }) {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
+    let { width: cW, height: cH } = canvasDimRef.current;
+    if (cW === 0 || cH === 0) {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cW = Math.round((window.innerWidth || 1920) * dpr);
+      cH = Math.round((window.innerHeight || 1080) * dpr);
+      canvas.width = cW;
+      canvas.height = cH;
+      canvasDimRef.current = { width: cW, height: cH };
+    }
+
     const img = getLoadedImage(frameIndex);
     if (!img) return;
-
-    const { width: cW, height: cH } = canvasDimRef.current;
-    if (cW === 0 || cH === 0) return;
 
     const iW = img.naturalWidth || 1920;
     const iH = img.naturalHeight || 1080;
@@ -453,17 +463,17 @@ export default function HeroSection({ onEnterDashboard }) {
 
         {/* =========================================================================
             COMMAND ROOM ARRIVAL OVERLAY (Reveals cleanly when flight reaches 100%)
-            Notice: All outdated text buttons removed per user instruction!
+            Notice: All outdated text buttons removed; Interactive 3D Neural Orb embedded!
             ========================================================================= */}
         <div 
           ref={commandCenterOverlayRef}
-          className="absolute inset-0 z-20 flex flex-col items-center justify-end pb-12 sm:pb-16 px-6 text-center will-change-transform pointer-events-none"
+          className="absolute inset-0 z-20 flex flex-col items-center justify-center pt-16 pb-8 px-6 text-center will-change-transform pointer-events-none"
           style={{ opacity: 0 }}
         >
-          <div className="max-w-3xl mx-auto flex flex-col items-center">
+          <div className="max-w-4xl mx-auto flex flex-col items-center">
             
             {/* Status Eyebrow Badge */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-950/80 border border-cyan-400/40 text-cyan-300 text-xs font-mono backdrop-blur-xl shadow-lg shadow-cyan-950/60 mb-3.5">
+            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-slate-950/80 border border-cyan-400/40 text-cyan-300 text-xs font-mono backdrop-blur-xl shadow-lg shadow-cyan-950/60 mb-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span className="font-semibold tracking-wider uppercase text-[11px]">
                 Command Center Online • All Sensors Active
@@ -472,8 +482,17 @@ export default function HeroSection({ onEnterDashboard }) {
               <span className="text-slate-400 text-[10px]">Zero Latency Stream</span>
             </div>
 
+            {/* Interactive 3D Neural Art Orb (Positioned precisely in the central holographic chamber) */}
+            <div className="relative flex items-center justify-center -my-3 pointer-events-auto">
+              {/* Radial ambient glow backdrop */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/25 via-blue-500/20 to-purple-500/25 rounded-full blur-3xl transform scale-125 pointer-events-none" />
+              
+              {/* 3D Neural Orb Component */}
+              <NeuralOrb size={420} className="relative z-20 drop-shadow-[0_0_60px_rgba(0,240,255,0.45)]" />
+            </div>
+
             {/* Dramatic Command Center Editorial Headline */}
-            <h2 className="font-editorial text-4xl sm:text-6xl md:text-7xl font-normal text-white tracking-tight leading-[1.08] mb-3 drop-shadow-[0_4px_30px_rgba(0,0,0,0.95)]">
+            <h2 className="font-editorial text-3xl sm:text-5xl md:text-6xl font-normal text-white tracking-tight leading-[1.06] mb-2 drop-shadow-[0_4px_30px_rgba(0,0,0,0.95)]">
               Autonomous Threat Intel.<br />
               <span className="italic font-light bg-gradient-to-r from-white via-cyan-200 to-blue-400 bg-clip-text text-transparent">
                 Every Vector Under Watch.
@@ -481,12 +500,12 @@ export default function HeroSection({ onEnterDashboard }) {
             </h2>
 
             {/* Forensic Mission Brief */}
-            <p className="max-w-xl mx-auto text-xs sm:text-sm text-slate-300 font-light leading-relaxed mb-6 drop-shadow-md">
+            <p className="max-w-xl mx-auto text-xs sm:text-sm text-slate-300 font-light leading-relaxed mb-4 drop-shadow-md">
               Multi-modal verification engines continuously scanning biometric voice streams, synthetic PDF contracts, and quarantined quishing URLs. Threat readiness at 99.8%.
             </p>
 
             {/* Telemetry Micro-Stat Pills */}
-            <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5 mb-6 text-xs font-mono">
+            <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5 mb-4 text-xs font-mono">
               <div className="px-3.5 py-1.5 rounded-full bg-slate-900/70 border border-slate-700/60 backdrop-blur-md text-slate-200 flex items-center gap-2 shadow-inner">
                 <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                 <span className="text-slate-400 uppercase text-[10px]">Latency:</span>
@@ -507,7 +526,7 @@ export default function HeroSection({ onEnterDashboard }) {
             </div>
 
             {/* Subtle, sleek scroll cue guiding smoothly to Sentinel Hub */}
-            <div className="flex flex-col items-center gap-1.5 text-cyan-400/80 select-none">
+            <div className="flex flex-col items-center gap-1 text-cyan-400/80 select-none">
               <span className="text-[10px] font-mono tracking-[0.25em] uppercase text-cyan-300/80">
                 Scroll to enter Sentinel Hub
               </span>

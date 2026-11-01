@@ -96,22 +96,22 @@ export default function RadarLaserBarrage({ isCvScam, isQrPhishing }) {
 
       // 2. Wide Outer Plasma Bloom
       ctx.shadowColor = mainColor;
-      ctx.shadowBlur = 18 * scale;
+      ctx.shadowBlur = Math.max(1, 18 * scale);
 
       ctx.beginPath();
-      ctx.arc(0, 0, 7.5 * scale, 0, Math.PI * 2);
+      ctx.arc(0, 0, Math.max(0.1, 7.5 * scale), 0, Math.PI * 2);
       ctx.fillStyle = glowColor;
       ctx.fill();
 
       // 3. Vibrant Saturated Colored Body Ring
       ctx.beginPath();
-      ctx.arc(0, 0, 5.5 * scale, 0, Math.PI * 2);
+      ctx.arc(0, 0, Math.max(0.1, 5.5 * scale), 0, Math.PI * 2);
       ctx.fillStyle = mainColor;
       ctx.fill();
 
       // 4. Incandescent Blazing White-Hot Core
       ctx.beginPath();
-      ctx.arc(0.5 * scale, 0, 3 * scale, 0, Math.PI * 2);
+      ctx.arc(0.5 * scale, 0, Math.max(0.1, 3 * scale), 0, Math.PI * 2);
       ctx.fillStyle = '#FFFFFF';
       ctx.shadowColor = '#FFFFFF';
       ctx.shadowBlur = 8 * scale;
@@ -145,7 +145,7 @@ export default function RadarLaserBarrage({ isCvScam, isQrPhishing }) {
     let lastTime = performance.now();
 
     const loop = (now) => {
-      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      const dt = Math.max(0, Math.min((now - lastTime) / 1000, 0.1));
       lastTime = now;
 
       ctx.clearRect(0, 0, width, height);
@@ -215,7 +215,7 @@ export default function RadarLaserBarrage({ isCvScam, isQrPhishing }) {
 
         ctx.save();
         ctx.beginPath();
-        ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+        ctx.arc(ring.x, ring.y, Math.max(0.1, ring.radius), 0, Math.PI * 2);
         ctx.strokeStyle = ring.color;
         ctx.lineWidth = 2.5;
         ctx.globalAlpha = Math.max(0, ring.opacity);
@@ -299,7 +299,7 @@ export default function RadarLaserBarrage({ isCvScam, isQrPhishing }) {
 
         ctx.save();
         ctx.beginPath();
-        ctx.arc(spark.x, spark.y, spark.size * spark.life, 0, Math.PI * 2);
+        ctx.arc(spark.x, spark.y, Math.max(0.1, spark.size * Math.max(0, spark.life)), 0, Math.PI * 2);
         ctx.fillStyle = spark.color;
         ctx.globalAlpha = Math.max(0, spark.life);
         ctx.shadowColor = spark.color;
@@ -320,7 +320,7 @@ export default function RadarLaserBarrage({ isCvScam, isQrPhishing }) {
         // Pulsing impact halo
         const pulse = 1.0 + Math.sin(now * 0.012) * 0.25;
         ctx.beginPath();
-        ctx.arc(node.pt.x, node.pt.y, 11 * pulse, 0, Math.PI * 2);
+        ctx.arc(node.pt.x, node.pt.y, Math.max(0.1, 11 * pulse), 0, Math.PI * 2);
         ctx.fillStyle = isRed ? 'rgba(255, 30, 66, 0.35)' : 'rgba(0, 255, 136, 0.35)';
         ctx.shadowColor = color;
         ctx.shadowBlur = 25;
