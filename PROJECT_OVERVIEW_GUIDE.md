@@ -16,10 +16,10 @@ Today, hackers aren’t just sending basic scam emails anymore. They are using a
 
 ---
 
-## 🚀 2. Live Links You Can Try Right Now
+## 🚀 2. Localhost & Repository Links
 
-- 🌐 **Live Web Application**: [https://trustlensarc.web.app](https://trustlensarc.web.app)
-- 📊 **Interactive Hackathon Slide Deck**: [https://trustlensarc.web.app/presentation.html](https://trustlensarc.web.app/presentation.html)
+- 🌐 **Local Web Application**: `http://localhost:5173`
+- 📊 **Interactive Hackathon Slide Deck**: `http://localhost:5173/presentation.html`
 - 🐙 **GitHub Source Code**: [https://github.com/itsayshaibrahim2006/Trustlens-Arc](https://github.com/itsayshaibrahim2006/Trustlens-Arc)
 
 ---
@@ -61,9 +61,9 @@ TrustLens Arc runs its **entire detection engine directly on your own device (cl
 - Your microphone recording stays in your browser memory.
 - All 12 resume scam heuristics and 11 link detonation algorithms run in **under 300 milliseconds** locally.
 
-### 🌐 Where Is the Website Hosted?
-- **Server Platform**: **Firebase Hosting (by Google Cloud)**
-- **How it works**: The compiled production files (`dist/`) are hosted on Google’s **Global Content Delivery Network (CDN) edge cache**. When anyone visits `trustlensarc.web.app`, Google's servers instantly deliver the cached files from the nearest server location to their city with SSL encryption and DDoS protection.
+### 🌐 How Is the Website Run Locally?
+- **Server Platform**: **Vite Localhost Development Server**
+- **How it works**: Running `npm run dev` spins up an ultra-fast local development server on `http://localhost:5173` with Hot Module Replacement (HMR). Any changes made to the code are instantly reflected in the browser without reloading.
 
 ---
 
@@ -160,7 +160,7 @@ You can now edit any file in the `src/` folder and see your changes update insta
 | **3D & Graphics** | Three.js WebGL, HTML5 Canvas 2D |
 | **Forensic Engines** | PDF.js (document parsing), jsQR (matrix decoding), Web Audio API (harmonics), Multi-Stream SRM+NPR+CLIP Image Forensics |
 | **Backend & Architecture** | 100% Client-Side Engine + PyTorch Reference Model (`models/hybrid_detector.py`) |
-| **Cloud Hosting** | Firebase Hosting (Google Cloud Edge CDN) |
-| **Live Web App** | [https://trustlensarc.web.app](https://trustlensarc.web.app) |
-| **Live Pitch Deck** | [https://trustlensarc.web.app/presentation.html](https://trustlensarc.web.app/presentation.html) |
+| **Execution Mode** | 100% Localhost Development Server (`http://localhost:5173`) |
+| **Local Web App** | [http://localhost:5173](http://localhost:5173) |
+| **Local Pitch Deck** | [http://localhost:5173/presentation.html](http://localhost:5173/presentation.html) |
 

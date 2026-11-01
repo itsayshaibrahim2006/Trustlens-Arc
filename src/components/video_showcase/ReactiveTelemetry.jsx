@@ -1539,11 +1539,11 @@ export default function ReactiveTelemetry() {
             <p className="text-xs text-slate-300 mb-3">Copy and paste this 16:9 widescreen widget snippet into any website or finance portal:</p>
             <div className="relative">
               <pre className="p-3.5 rounded-xl bg-slate-900 font-mono text-[11px] text-cyan-300 overflow-x-auto border border-white/15 select-all">
-                {`<iframe src="https://trustlensarc.web.app/#telemetry-section" width="100%" height="700" style="border:0;border-radius:28px;max-width:1360px;" allow="microphone"></iframe>`}
+                {`<iframe src="http://localhost:5173/#telemetry-section" width="100%" height="700" style="border:0;border-radius:28px;max-width:1360px;" allow="microphone"></iframe>`}
               </pre>
               <button 
                 onClick={() => {
-                  navigator.clipboard.writeText('<iframe src="https://trustlensarc.web.app/#telemetry-section" width="100%" height="700" style="border:0;border-radius:28px;max-width:1360px;" allow="microphone"></iframe>');
+                  navigator.clipboard.writeText('<iframe src="http://localhost:5173/#telemetry-section" width="100%" height="700" style="border:0;border-radius:28px;max-width:1360px;" allow="microphone"></iframe>');
                   setCopiedCode(true);
                   setTimeout(() => setCopiedCode(false), 2200);
                 }}
