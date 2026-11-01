@@ -27,6 +27,8 @@ dist-ssr
 # Firebase
 .firebase/
 .firebase
+service-account.json
+*.json.key
 .env
 .env.*
 !.env.example
