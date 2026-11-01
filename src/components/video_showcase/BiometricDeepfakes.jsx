@@ -412,7 +412,7 @@ export default function BiometricDeepfakes() {
                   <img 
                     src={currentData.mediaUrl} 
                     alt={currentData.title}
-                    className={`w-full h-full object-cover transition-all duration-700 ${
+                    className={`w-full h-full object-contain transition-all duration-700 ${
                       isZoomed ? 'scale-125' : 'scale-100'
                     } ${showHeatmap ? 'filter saturate-200 hue-rotate-180 contrast-150' : 'filter contrast-105'}`}
                   />
