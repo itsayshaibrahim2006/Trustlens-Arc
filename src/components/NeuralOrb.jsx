@@ -1,7 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 
-export const NeuralOrb = ({ size = 560, className = '' }) => {
+export const NeuralOrb = ({ size = 560, className = '', isActive = true }) => {
   const canvasRef = useRef(null);
+  const isActiveRef = useRef(isActive);
+  const resumeRenderRef = useRef(null);
+
+  useEffect(() => {
+    isActiveRef.current = isActive;
+    if (isActive && resumeRenderRef.current) {
+      resumeRenderRef.current();
+    }
+  }, [isActive]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -10,6 +19,7 @@ export const NeuralOrb = ({ size = 560, className = '' }) => {
     if (!ctx) return;
 
     let animationFrameId;
+    let isRunning = false;
 
     // Static base orientation - orb does NOT rotate continuously on its axis
     const baseAngleX = 0.16;
@@ -502,12 +512,29 @@ export const NeuralOrb = ({ size = 560, className = '' }) => {
       }
       ctx.globalAlpha = 1;
 
+      // Only schedule next frame if active (Sleep Mode saves 100% CPU when off-screen)
+      if (isActiveRef.current) {
+        animationFrameId = requestAnimationFrame(render);
+      } else {
+        isRunning = false;
+      }
+    };
+
+    const startLoop = () => {
+      if (isRunning) return;
+      isRunning = true;
       animationFrameId = requestAnimationFrame(render);
     };
 
-    render();
+    resumeRenderRef.current = startLoop;
+
+    if (isActiveRef.current) {
+      startLoop();
+    }
 
     return () => {
+      isRunning = false;
+      resumeRenderRef.current = null;
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('mousemove', handleWindowMouseMove);
       window.removeEventListener('touchmove', handleTouchMove);

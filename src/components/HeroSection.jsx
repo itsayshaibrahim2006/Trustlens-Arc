@@ -18,13 +18,13 @@ export default function HeroSection({ onEnterDashboard }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const imagesRef = useRef(new Array(TOTAL_FRAMES));
+  const lastAvailableFrameRef = useRef(null);
   
   // Animation & Physics Tracking (Ref-based for 120 FPS / 60 FPS zero-jank scrubbing)
   const smoothProgressRef = useRef(0);
   const targetProgressRef = useRef(0);
   const lastDrawnFrameRef = useRef(-1);
   const rafIdRef = useRef(null);
-  const canvasDimRef = useRef({ width: 0, height: 0 });
 
   // DOM Refs for Direct Style Mutation (Zero React Re-render Overhead)
   const corridorOverlayRef = useRef(null);
@@ -43,22 +43,48 @@ export default function HeroSection({ onEnterDashboard }) {
   const step03TextRef = useRef(null);
 
   const [isReady, setIsReady] = useState(false);
+  const [isOrbActive, setIsOrbActive] = useState(false);
+  const isOrbActiveRef = useRef(false);
 
-  // 1. High-Performance Progressive Image Preloader
+  // 1. High-Performance Progressive Asynchronous Frame Decoder (createImageBitmap)
   useEffect(() => {
     let isCancelled = false;
     const images = imagesRef.current;
 
+    // Helper: Decode image off the main thread using createImageBitmap for zero micro-stutter
+    const decodeFrame = async (idx) => {
+      const url = getFrameUrl(idx);
+      if (typeof window !== 'undefined' && 'createImageBitmap' in window) {
+        try {
+          const res = await fetch(url);
+          const blob = await res.blob();
+          const bitmap = await createImageBitmap(blob);
+          if (isCancelled) return null;
+          images[idx] = bitmap;
+          if (!lastAvailableFrameRef.current) lastAvailableFrameRef.current = bitmap;
+          return bitmap;
+        } catch {}
+      }
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.src = url;
+        img.onload = () => {
+          if (isCancelled) return resolve(null);
+          images[idx] = img;
+          if (!lastAvailableFrameRef.current) lastAvailableFrameRef.current = img;
+          resolve(img);
+        };
+        img.onerror = () => resolve(null);
+      });
+    };
+
     // Load Frame 1 immediately for instant first paint
-    const firstImg = new Image();
-    firstImg.src = getFrameUrl(0);
-    firstImg.onload = () => {
-      if (isCancelled) return;
-      images[0] = firstImg;
+    decodeFrame(0).then((first) => {
+      if (isCancelled || !first) return;
       setIsReady(true);
       drawFrame(0);
       lastDrawnFrameRef.current = 0;
-    };
+    });
 
     // Prioritize keyframes every 4th frame for instant scrub response
     const keyframes = [];
@@ -70,7 +96,7 @@ export default function HeroSection({ onEnterDashboard }) {
 
     const queue = [...keyframes, ...others];
     let queueIdx = 0;
-    const MAX_CONCURRENT = 8;
+    const MAX_CONCURRENT = 10;
     let activeWorkers = 0;
 
     const pumpQueue = () => {
@@ -78,27 +104,16 @@ export default function HeroSection({ onEnterDashboard }) {
       while (activeWorkers < MAX_CONCURRENT && queueIdx < queue.length) {
         const frameIdx = queue[queueIdx++];
         activeWorkers++;
-        const img = new Image();
-        img.src = getFrameUrl(frameIdx);
 
-        img.onload = () => {
+        decodeFrame(frameIdx).then(() => {
           if (isCancelled) return;
-          images[frameIdx] = img;
           activeWorkers--;
-          
-          // If user is currently looking at this frame or nearby, render it
           const curFrame = lastDrawnFrameRef.current;
           if (curFrame >= 0 && Math.abs(curFrame - frameIdx) <= 1) {
             drawFrame(curFrame);
           }
           pumpQueue();
-        };
-
-        img.onerror = () => {
-          if (isCancelled) return;
-          activeWorkers--;
-          pumpQueue();
-        };
+        });
       }
     };
 
@@ -109,98 +124,58 @@ export default function HeroSection({ onEnterDashboard }) {
     };
   }, []);
 
-  // Retrieve closest loaded frame fallback (Zero blank canvas)
-  const getLoadedImage = (index) => {
-    const images = imagesRef.current;
-    if (images[index]?.complete && images[index]?.naturalWidth > 0) {
-      return images[index];
-    }
-    for (let offset = 1; offset < TOTAL_FRAMES; offset++) {
-      const prev = images[index - offset];
-      if (prev?.complete && prev?.naturalWidth > 0) return prev;
-      const next = images[index + offset];
-      if (next?.complete && next?.naturalWidth > 0) return next;
-    }
-    return (images[0]?.complete && images[0]?.naturalWidth > 0) ? images[0] : null;
-  };
-
-  // 2. High-Performance Canvas Draw (No layout thrashing)
+  // 2. High-Performance Canvas Initialization & Hardware 1:1 Draw
+  // Fixed 1920x1080 buffer delegates display scaling to the GPU hardware texture filter at 0% CPU cost
   const drawFrame = (frameIndex) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     if (!ctx) return;
 
-    let { width: cW, height: cH } = canvasDimRef.current;
-    if (cW === 0 || cH === 0) {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      cW = Math.round((window.innerWidth || 1920) * dpr);
-      cH = Math.round((window.innerHeight || 1080) * dpr);
-      canvas.width = cW;
-      canvas.height = cH;
-      canvasDimRef.current = { width: cW, height: cH };
+    if (canvas.width !== 1920 || canvas.height !== 1080) {
+      canvas.width = 1920;
+      canvas.height = 1080;
     }
 
-    const img = getLoadedImage(frameIndex);
-    if (!img) return;
+    const frame = imagesRef.current[frameIndex] || lastAvailableFrameRef.current;
+    if (!frame) return;
 
-    const iW = img.naturalWidth || 1920;
-    const iH = img.naturalHeight || 1080;
-    const scale = Math.max(cW / iW, cH / iH);
-    const sW = iW * scale;
-    const sH = iH * scale;
-    const sX = (cW - sW) / 2;
-    const sY = (cH - sH) / 2;
-
-    ctx.drawImage(img, sX, sY, sW, sH);
+    lastAvailableFrameRef.current = frame;
+    ctx.drawImage(frame, 0, 0, 1920, 1080);
   };
 
-  // 3. Handle Canvas Resize (Dimensions cached, getBoundingClientRect never called in RAF)
+  // Initial mount canvas setup
   useEffect(() => {
-    const handleResize = () => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const targetW = Math.round(w * dpr);
-      const targetH = Math.round(h * dpr);
-
-      canvas.width = targetW;
-      canvas.height = targetH;
-      canvasDimRef.current = { width: targetW, height: targetH };
-
-      drawFrame(lastDrawnFrameRef.current >= 0 ? lastDrawnFrameRef.current : 0);
-    };
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
-    return () => window.removeEventListener('resize', handleResize);
+    const canvas = canvasRef.current;
+    if (canvas) {
+      canvas.width = 1920;
+      canvas.height = 1080;
+    }
   }, []);
 
-  // 4. Update Overlays Directly in DOM (Bypasses React Reconciler for Pure 60/120 FPS)
+  // 3. Update Overlays Directly in DOM with Hardware translate3d Compositing
   const updateDomOverlays = (p) => {
     // A. Corridor Editorial Overlay (Visible from 0% to ~35%)
     const corridorOpacity = Math.max(0, 1 - p * 2.8);
     const corridorY = p * 40;
     if (corridorOverlayRef.current) {
       corridorOverlayRef.current.style.opacity = corridorOpacity;
-      corridorOverlayRef.current.style.transform = `translateY(${corridorY}px)`;
+      corridorOverlayRef.current.style.transform = `translate3d(0, ${corridorY}px, 0)`;
       corridorOverlayRef.current.style.pointerEvents = corridorOpacity < 0.05 ? 'none' : 'auto';
     }
     if (skyCardRef.current) {
       skyCardRef.current.style.opacity = corridorOpacity;
-      skyCardRef.current.style.transform = `translateY(${corridorY * 0.7}px)`;
+      skyCardRef.current.style.transform = `translate3d(0, ${corridorY * 0.7}px, 0)`;
       skyCardRef.current.style.pointerEvents = corridorOpacity < 0.05 ? 'none' : 'auto';
     }
     if (bottomWidgetRef.current) {
       bottomWidgetRef.current.style.opacity = corridorOpacity;
-      bottomWidgetRef.current.style.transform = `translateY(${corridorY}px)`;
+      bottomWidgetRef.current.style.transform = `translate3d(0, ${corridorY}px, 0)`;
       bottomWidgetRef.current.style.pointerEvents = corridorOpacity < 0.05 ? 'none' : 'auto';
     }
     if (bottomCaptionRef.current) {
       bottomCaptionRef.current.style.opacity = corridorOpacity;
-      bottomCaptionRef.current.style.transform = `translateY(${corridorY}px)`;
+      bottomCaptionRef.current.style.transform = `translate3d(0, ${corridorY}px, 0)`;
     }
 
     // B. Stepper (01, 02, 03)
@@ -221,15 +196,24 @@ export default function HeroSection({ onEnterDashboard }) {
     }
 
     // C. Command Center Overlay (Reveals from 70% to 100%)
-    const commandOpacity = Math.min(1, Math.max(0, (p - 0.72) * 3.57));
-    const commandY = (1 - commandOpacity) * 30;
+    const commandOpacity = Math.min(1, Math.max(0, (p - 0.70) * 3.33));
+    const commandY = (1 - commandOpacity) * 25;
     if (commandCenterOverlayRef.current) {
       commandCenterOverlayRef.current.style.opacity = commandOpacity;
-      commandCenterOverlayRef.current.style.transform = `translateY(${commandY}px)`;
+      commandCenterOverlayRef.current.style.transform = `translate3d(0, ${commandY}px, 0)`;
       commandCenterOverlayRef.current.style.pointerEvents = commandOpacity > 0.4 ? 'auto' : 'none';
     }
 
-    // D. Flight Badge Indicator
+    // D. Sleep Mode State for NeuralOrb: Activate when entering Command Center room (saves 100% CPU during flight)
+    if (p >= 0.65 && !isOrbActiveRef.current) {
+      isOrbActiveRef.current = true;
+      setIsOrbActive(true);
+    } else if (p < 0.58 && isOrbActiveRef.current) {
+      isOrbActiveRef.current = false;
+      setIsOrbActive(false);
+    }
+
+    // E. Flight Badge Indicator
     if (flightBadgeRef.current && flightPctTextRef.current) {
       if (p > 0.05 && p < 0.95) {
         flightBadgeRef.current.style.opacity = '1';
@@ -242,7 +226,7 @@ export default function HeroSection({ onEnterDashboard }) {
     }
   };
 
-  // 5. Native Smooth Scroll Tracker (Passive, zero-interception, butter-smooth native physics)
+  // 4. Native Smooth Scroll Tracker (Passive, zero-interception, butter-smooth native physics)
   useEffect(() => {
     const handleScroll = () => {
       const container = containerRef.current;
@@ -260,7 +244,7 @@ export default function HeroSection({ onEnterDashboard }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 6. Continuous Lerp (Linear Interpolation) Render Loop
+  // 5. Continuous Lerp (Linear Interpolation) Render Loop
   useEffect(() => {
     let active = true;
 
@@ -271,9 +255,9 @@ export default function HeroSection({ onEnterDashboard }) {
       const current = smoothProgressRef.current;
       const diff = target - current;
 
-      // Silky smooth momentum dampening (0.16 = instantaneous yet buttery responsiveness)
-      if (Math.abs(diff) > 0.0001) {
-        smoothProgressRef.current += diff * 0.16;
+      // Silky responsive momentum dampening (synchronized with Lenis smooth scroll)
+      if (Math.abs(diff) > 0.00005) {
+        smoothProgressRef.current += diff * 0.22;
       } else {
         smoothProgressRef.current = target;
       }
@@ -306,7 +290,11 @@ export default function HeroSection({ onEnterDashboard }) {
     const container = containerRef.current;
     if (!container) return;
     const targetY = container.offsetTop + (container.offsetHeight - window.innerHeight);
-    window.scrollTo({ top: targetY, behavior: 'smooth' });
+    if (window.lenis) {
+      window.lenis.scrollTo(targetY, { duration: 2.2 });
+    } else {
+      window.scrollTo({ top: targetY, behavior: 'smooth' });
+    }
   };
 
   const handleStartJourney = () => {
@@ -314,7 +302,13 @@ export default function HeroSection({ onEnterDashboard }) {
       onEnterDashboard();
     } else {
       const target = document.getElementById('deepfakes-section') || document.getElementById('scanbay-section');
-      if (target) target.scrollIntoView({ behavior: 'smooth' });
+      if (target) {
+        if (window.lenis) {
+          window.lenis.scrollTo(target, { offset: -20, duration: 1.4 });
+        } else {
+          target.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
     }
   };
 
@@ -322,15 +316,15 @@ export default function HeroSection({ onEnterDashboard }) {
     <section 
       id="overview-section"
       ref={containerRef} 
-      className="relative w-full h-[250vh] bg-[#070B13]"
+      className="relative w-full h-[420vh] bg-[#070B13]"
     >
       {/* Sticky Fullscreen Canvas Viewport */}
       <div className="sticky top-0 h-screen w-full overflow-hidden select-none bg-[#070B13]">
         
-        {/* Full-Screen Canvas Viewport */}
+        {/* Full-Screen Canvas Viewport (Fixed 1080p Buffer with Hardware GPU Scaling) */}
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none will-change-transform"
         />
 
         {/* Atmospheric Vignette & Contrast Gradients */}
@@ -473,11 +467,11 @@ export default function HeroSection({ onEnterDashboard }) {
           {/* Big Interactive 3D Neural Art Orb with Multi-Layer Volumetric Glow */}
           <div className="relative flex items-center justify-center pointer-events-auto transform scale-100 sm:scale-105 lg:scale-115 transition-transform">
             {/* Multi-layered radial ambient glow backdrop in Electric Cyan, Pure White & Cosmic Obsidian */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/35 via-blue-600/25 to-cyan-300/20 rounded-full blur-[110px] transform scale-125 pointer-events-none" />
-            <div className="absolute inset-0 bg-cyan-400/20 rounded-full blur-[160px] transform scale-150 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/35 via-blue-600/25 to-cyan-300/20 rounded-full blur-[60px] transform scale-125 pointer-events-none will-change-transform" />
+            <div className="absolute inset-0 bg-cyan-400/20 rounded-full blur-[80px] transform scale-150 pointer-events-none will-change-transform" />
             
-            {/* Big 3D Neural Orb Component */}
-            <NeuralOrb size={560} className="relative z-20 drop-shadow-[0_0_80px_rgba(0,240,255,0.65)]" />
+            {/* Big 3D Neural Orb Component with Sleep Mode Support */}
+            <NeuralOrb size={560} isActive={isOrbActive} className="relative z-20 drop-shadow-[0_0_80px_rgba(0,240,255,0.65)]" />
           </div>
         </div>
 
