@@ -31,54 +31,78 @@ import InteractiveRobotSentinel from '../InteractiveRobotSentinel.jsx';
 import { analyzeImageForensics } from '../../utils/imageForensics.js';
 import { analyzeVideoForensics } from '../../utils/videoForensics.js';
 
-// Modern 2026 Forensic Presets (Diffusion, Sora, Physical DSLR)
+// Modern 2026 Forensic Presets (Tiered Waterfall Decision Architecture)
 const FORENSIC_PRESETS = [
   {
     id: 'ai-face',
     title: 'Midjourney v6 / Flux Portrait',
     type: 'image',
-    badge: 'Multi-Stream: Synthetic Face',
+    badge: 'Tiered Waterfall: Synthetic Portrait',
     isAI: true,
     fakePct: 97.4,
     mediaUrl: '/biometric_face.jpg',
-    summary: 'Flagged by Multi-Stream Hybrid Architecture. Stream A detected high-frequency latent diffusion denoising residuals (SRM + NPR) with zero hardware camera provenance.',
+    uncertaintyBand: {
+      band: 'Highly Likely AI-Generated',
+      badgeColor: 'red',
+      code: 'SYNTHETIC_CRITICAL',
+      uiPresentation: 'Red alert; high-confidence diffusion & deepfake signatures',
+      range: '0.76 – 1.00'
+    },
+    summary: 'Flagged by Tiered Waterfall Decision Engine (Tier 4 Fusion). Latent diffusion denoising residuals (UniversalFakeDetect + SRM) combined with DeepFace boundary warping on dominant portrait (w_face=0.60, w_diff=0.40).',
     signals: [
-      { name: 'Stream A: SRM Noise Forensics', score: '98.2%', status: 'fail', detail: '30-filter SRM detected latent diffusion denoising residuals' },
-      { name: 'Stream A: NPR Upsampling Grid', score: '95.6%', status: 'fail', detail: 'Neighboring Pixel Relationship gradient anomaly' },
-      { name: 'Stream B: Vision Priors (CLIP)', score: '94.5%', status: 'fail', detail: 'Asymmetric specular corneal catchlights & synthetic smoothing' },
-      { name: 'Stage 1: C2PA & Provenance Gate', score: '0.0%', status: 'fail', detail: 'No hardware sensor Bayer CFA signature' },
+      { name: 'Tier 1: C2PA & Provenance Gate', score: '0.0% Attested', status: 'fail', detail: 'No hardware sensor root; synthetic manifest tags found' },
+      { name: 'Tier 2: Visual Vector Search', score: 'Dist: 0.421', status: 'neutral', detail: 'Novel non-indexed image; routed to deep neural analysis' },
+      { name: 'Tier 3A: DeepFace Boundary & Symmetry', score: '96.0% Fake', status: 'fail', detail: 'Dominant portrait covers 34% of frame (w_face=0.60)' },
+      { name: 'Tier 3B: Universal Diffusion ViT & SRM', score: '98.2% Fake', status: 'fail', detail: 'Latent diffusion artifact probability (w_diff=0.40)' },
+      { name: 'Tier 4: Dynamic Fusion Decision', score: '97.4%', status: 'fail', detail: 'Highly Likely AI-Generated (0.76 – 1.00)' },
     ]
   },
   {
     id: 'ai-video',
     title: 'Sora / FaceSwap Video',
     type: 'video',
-    badge: 'Multi-Stream: Deepfake Video',
+    badge: 'Tiered Waterfall: Deepfake Stream',
     isAI: true,
     fakePct: 95.8,
     mediaUrl: '/hero_transition.mp4',
-    summary: 'Flagged by Stream C Face-Boundary & Optical Flow Blending. Inter-frame facial seam discontinuities detected around jaw and mouth perimeter.',
+    uncertaintyBand: {
+      band: 'Highly Likely AI-Generated',
+      badgeColor: 'red',
+      code: 'SYNTHETIC_CRITICAL',
+      uiPresentation: 'Red alert; high-confidence temporal deepfake video',
+      range: '0.76 – 1.00'
+    },
+    summary: 'Flagged by Tiered Waterfall Decision Engine. Face X-Ray blending perimeter discontinuities detected around jawline combined with inter-frame optical flow jitter.',
     signals: [
-      { name: 'Stream C: Facial Boundary Seam', score: '96.3%', status: 'fail', detail: 'Face X-Ray blending perimeter discontinuity' },
-      { name: 'Stream A: VAE Reconstruction Noise', score: '94.1%', status: 'fail', detail: 'Latent space VAE decoder artifact frequency' },
-      { name: 'Stream B: Temporal Coherence', score: '91.5%', status: 'fail', detail: 'Inorganic inter-frame landmark jitter at 24fps' },
-      { name: 'Stage 1: Re-Encoding Compression', score: '12.0%', status: 'fail', detail: 'Adversarial double-compression artifacts' },
+      { name: 'Tier 1: Compression Provenance', score: '12.0%', status: 'fail', detail: 'Adversarial double-compression artifacts' },
+      { name: 'Tier 2: Keyframe Metric Vector', score: 'Dist: 0.385', status: 'neutral', detail: 'Novel temporal sequence; evaluated across 5 keyframes' },
+      { name: 'Tier 3A: Facial Boundary Seam', score: '96.3% Fake', status: 'fail', detail: 'Face X-Ray blending perimeter discontinuity' },
+      { name: 'Tier 3B: Temporal Optical Flow', score: '91.5% Fake', status: 'fail', detail: 'Inorganic inter-frame landmark jitter at 24fps' },
+      { name: 'Tier 4: Dynamic Fusion Decision', score: '95.8%', status: 'fail', detail: 'Highly Likely AI-Generated (0.76 – 1.00)' },
     ]
   },
   {
     id: 'real-face',
     title: 'Canon EOS R5 Studio Capture',
     type: 'image',
-    badge: 'Camera Provenance Attested',
+    badge: 'Hardware Root Attested',
     isAI: false,
     fakePct: 1.8,
     mediaUrl: '/concept_1_airlock.jpg',
-    summary: 'Verified Authentic Capture. Physical CMOS sensor noise, consistent optical geometry, and natural Poisson-Gaussian photon distribution confirmed.',
+    uncertaintyBand: {
+      band: 'Highly Likely Authentic',
+      badgeColor: 'emerald',
+      code: 'AUTHENTIC_VERIFIED',
+      uiPresentation: 'Green badge; camera sensor & photographic physics verified',
+      range: '0.00 – 0.25'
+    },
+    summary: 'Verified Authentic Capture (Tier 1 & Tier 4). Hardware camera EXIF tables, physical CMOS sensor noise, consistent optical geometry, and natural Poisson photon distribution confirmed.',
     signals: [
-      { name: 'Stream A: CMOS Bayer Sensor Noise', score: '98.9%', status: 'pass', detail: 'Natural physical ISO photon distribution' },
-      { name: 'Stream A: NPR Continuous Gradients', score: '97.8%', status: 'pass', detail: 'Natural optical MTF lens blur distribution' },
-      { name: 'Stream B: Vision Priors (CLIP)', score: '97.2%', status: 'pass', detail: 'Coherent twin-studio softbox reflections' },
-      { name: 'Stage 1: Hardware EXIF Attestation', score: '99.5%', status: 'pass', detail: 'Cryptographic lens serial & EXIF integrity' },
+      { name: 'Tier 1: C2PA & Hardware Attestation', score: '100% Attested', status: 'pass', detail: 'Canon EOS R5 hardware sensor tables & serial verified' },
+      { name: 'Tier 2: Visual Vector Search', score: 'Dist: 0.312', status: 'neutral', detail: 'Novel authenticated capture; zero web scrape duplicates' },
+      { name: 'Tier 3A: DeepFace Natural Symmetry', score: '2.0% Fake', status: 'pass', detail: 'Natural facial softbox reflections & anatomical depth' },
+      { name: 'Tier 3B: CMOS Bayer Photon Noise', score: '1.6% Fake', status: 'pass', detail: 'Continuous Poisson-Gaussian CMOS photon distribution' },
+      { name: 'Tier 4: Dynamic Fusion Decision', score: '1.8%', status: 'pass', detail: 'Highly Likely Authentic (0.00 – 0.25)' },
     ]
   }
 ];
@@ -194,13 +218,17 @@ export default function BiometricDeepfakes() {
             id: 'custom-' + Date.now(),
             title: file.name,
             type: 'image',
-            badge: analysis.isAI ? 'Multi-Stream: Synthetic Media' : 'Camera Capture Attested',
+            badge: analysis.uncertaintyBand?.band || (analysis.isAI ? 'Synthetic Media' : 'Camera Capture Attested'),
             isAI: analysis.isAI,
+            verdict: analysis.verdict,
+            uncertaintyBand: analysis.uncertaintyBand,
+            confidence_score: analysis.confidence_score,
             fakePct: analysis.fakePct,
             mediaUrl: objectUrl,
             heatmapUrl: analysis.heatmapUrl,
             summary: analysis.summary,
-            signals: analysis.signals
+            signals: analysis.signals,
+            evidence_breakdown: analysis.evidence_breakdown
           });
         }, 250);
       } else {
@@ -613,25 +641,36 @@ export default function BiometricDeepfakes() {
                 
                 {/* Left Verdict Callout */}
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    {isFake ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 border border-red-500 text-red-400 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5" />
-                        <span>AI GENERATED DETECTED</span>
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500 text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>AUTHENTIC CAMERA VERIFIED</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Calibrated Uncertainty Band Badge */}
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                      currentData.uncertaintyBand?.badgeColor === 'emerald'
+                        ? 'bg-emerald-500/20 border border-emerald-500 text-emerald-400'
+                        : currentData.uncertaintyBand?.badgeColor === 'slate'
+                        ? 'bg-slate-700/40 border border-slate-600 text-slate-300'
+                        : currentData.uncertaintyBand?.badgeColor === 'amber'
+                        ? 'bg-amber-500/20 border border-amber-500 text-amber-400'
+                        : currentData.uncertaintyBand?.badgeColor === 'orange'
+                        ? 'bg-orange-500/20 border border-orange-500 text-orange-400'
+                        : 'bg-red-500/20 border border-red-500 text-red-400'
+                    }`}>
+                      {isFake ? <ShieldAlert className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                      <span>{currentData.uncertaintyBand?.band?.toUpperCase() || (isFake ? 'AI GENERATED DETECTED' : 'AUTHENTIC CAMERA VERIFIED')}</span>
+                    </span>
+
+                    {/* Dynamic Weight Badge */}
+                    {currentData.evidence_breakdown?.dynamic_weights && (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-900 border border-slate-700 text-[10px] font-mono text-cyan-300">
+                        w_face: {(currentData.evidence_breakdown.dynamic_weights.w_face * 100).toFixed(0)}% | w_diff: {(currentData.evidence_breakdown.dynamic_weights.w_diff * 100).toFixed(0)}%
                       </span>
                     )}
                   </div>
 
                   <h3 className="text-xl sm:text-2xl font-black font-sans tracking-tight text-white flex items-center gap-2">
                     {isFake ? (
-                      <span>This Image is <span className="text-red-400 underline decoration-red-500/50 underline-offset-4">FAKE</span></span>
+                      <span>This Image is <span className="text-red-400 underline decoration-red-500/50 underline-offset-4">SYNTHETIC</span></span>
                     ) : (
-                      <span>This Image is <span className="text-emerald-400 underline decoration-emerald-500/50 underline-offset-4">REAL</span></span>
+                      <span>This Image is <span className="text-emerald-400 underline decoration-emerald-500/50 underline-offset-4">AUTHENTIC</span></span>
                     )}
                   </h3>
 
@@ -659,7 +698,7 @@ export default function BiometricDeepfakes() {
                   <span className={`text-[10px] font-mono font-bold uppercase mt-1 px-2 py-0.5 rounded ${
                     isFake ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'
                   }`}>
-                    {isFake ? 'Synthetic Diffusion' : 'Physical CMOS Sensor'}
+                    {currentData.uncertaintyBand?.code || (isFake ? 'Synthetic Diffusion' : 'Physical CMOS Sensor')}
                   </span>
                 </div>
 
