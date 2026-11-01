@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import RadarLaserBarrage from './RadarLaserBarrage.jsx';
 import { 
   FileText, 
   QrCode, 
@@ -186,101 +187,10 @@ export default function ScanBayVehicle() {
         <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch w-full">
           
           {/* =========================================================================
-              SVG LASER BEAMS OVERLAY (Shooting from Radar to the 2 Right Cards)
+              HIGH-ENERGY PLASMA FIRE BARRAGE (Shooting from Radar to the 2 Right Cards)
+              Multi-bolt chevron clusters in blazing red/green fire matching arcade projectile spec
               ========================================================================= */}
-          <div className="hidden lg:block absolute inset-0 pointer-events-none z-30">
-            <svg className="w-full h-full overflow-visible">
-              <defs>
-                {/* Glow Filter for Lasers */}
-                <filter id="laser-glow-red" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="5" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-                <filter id="laser-glow-green" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="5" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-
-                {/* Laser Linear Gradients */}
-                <linearGradient id="beam1-grad-red" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#00f0ff" stopOpacity="0.8" />
-                  <stop offset="60%" stopColor="#ef4444" stopOpacity="0.9" />
-                  <stop offset="100%" stopColor="#ff0055" stopOpacity="1" />
-                </linearGradient>
-                <linearGradient id="beam1-grad-green" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#00f0ff" stopOpacity="0.8" />
-                  <stop offset="60%" stopColor="#10b981" stopOpacity="0.9" />
-                  <stop offset="100%" stopColor="#00ff88" stopOpacity="1" />
-                </linearGradient>
-
-                <linearGradient id="beam2-grad-red" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#00f0ff" stopOpacity="0.8" />
-                  <stop offset="60%" stopColor="#ef4444" stopOpacity="0.9" />
-                  <stop offset="100%" stopColor="#ff0055" stopOpacity="1" />
-                </linearGradient>
-                <linearGradient id="beam2-grad-green" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#00f0ff" stopOpacity="0.8" />
-                  <stop offset="60%" stopColor="#10b981" stopOpacity="0.9" />
-                  <stop offset="100%" stopColor="#00ff88" stopOpacity="1" />
-                </linearGradient>
-              </defs>
-
-              {/* BEAM 1: From Radar (approx 34% X, 28% Y) to Card 1 (approx 52% X, 22% Y) */}
-              <g filter={isCvScam ? 'url(#laser-glow-red)' : 'url(#laser-glow-green)'}>
-                {/* Ambient Base Beam Line */}
-                <path
-                  d="M 33% 26% C 42% 23%, 45% 20%, 50% 21%"
-                  fill="none"
-                  stroke={isCvScam ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)'}
-                  strokeWidth="3"
-                />
-                {/* Rapid Animated Laser Energy Pulses */}
-                <path
-                  d="M 33% 26% C 42% 23%, 45% 20%, 50% 21%"
-                  fill="none"
-                  stroke={isCvScam ? 'url(#beam1-grad-red)' : 'url(#beam1-grad-green)'}
-                  strokeWidth="4"
-                  strokeDasharray="16 28"
-                  className="animate-laser-fast"
-                />
-                {/* Radar Dish Origin Glow Node */}
-                <circle cx="33%" cy="26%" r="6" fill="#00f0ff" className="animate-ping" style={{ animationDuration: '1.4s' }} />
-                <circle cx="33%" cy="26%" r="4" fill="#ffffff" />
-                {/* Target Impact Node on Card 1 */}
-                <circle cx="50%" cy="21%" r="7" fill={card1Color} className="animate-ping" style={{ animationDuration: '0.9s' }} />
-                <circle cx="50%" cy="21%" r="4" fill="#ffffff" />
-              </g>
-
-              {/* BEAM 2: From Radar (approx 34% X, 28% Y) to Card 2 (approx 52% X, 72% Y) */}
-              <g filter={isQrPhishing ? 'url(#laser-glow-red)' : 'url(#laser-glow-green)'}>
-                {/* Ambient Base Beam Line */}
-                <path
-                  d="M 33% 26% C 42% 38%, 44% 65%, 50% 70%"
-                  fill="none"
-                  stroke={isQrPhishing ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)'}
-                  strokeWidth="3"
-                />
-                {/* Rapid Animated Laser Energy Pulses */}
-                <path
-                  d="M 33% 26% C 42% 38%, 44% 65%, 50% 70%"
-                  fill="none"
-                  stroke={isQrPhishing ? 'url(#beam2-grad-red)' : 'url(#beam2-grad-green)'}
-                  strokeWidth="4"
-                  strokeDasharray="16 28"
-                  className="animate-laser-fast"
-                />
-                {/* Target Impact Node on Card 2 */}
-                <circle cx="50%" cy="70%" r="7" fill={card2Color} className="animate-ping" style={{ animationDuration: '0.9s' }} />
-                <circle cx="50%" cy="70%" r="4" fill="#ffffff" />
-              </g>
-            </svg>
-          </div>
+          <RadarLaserBarrage isCvScam={isCvScam} isQrPhishing={isQrPhishing} />
 
           {/* =========================================================================
               LEFT: UNOBSTRUCTED LARGE 3D BUS WITH ASTRONAUT (Cols 1 - 6)

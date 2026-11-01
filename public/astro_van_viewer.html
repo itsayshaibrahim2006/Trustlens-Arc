@@ -767,7 +767,8 @@
             // Count total 3D meshes for the inspector badge
             let meshCount = 0;
             hoverVanGroup.traverse(c => { if (c.isMesh) meshCount++; });
-            document.getElementById('part-counter').textContent = `${meshCount} 3D Meshes`;
+            const partCounter = document.getElementById('part-counter');
+            if (partCounter) partCounter.textContent = `${meshCount} 3D Meshes`;
         }
 
         // ----------------------------------------------------------------------------
@@ -2142,21 +2143,25 @@
 
         function toggleAnimation() {
             isAnimating = !isAnimating;
-            document.getElementById('btn-anim').classList.toggle('active', isAnimating);
+            const btnAnim = document.getElementById('btn-anim');
+            if (btnAnim) btnAnim.classList.toggle('active', isAnimating);
             if (isAnimating) {
                 manualRadarAngle = null;
-                document.getElementById('radar-val').textContent = 'Auto';
+                const radarVal = document.getElementById('radar-val');
+                if (radarVal) radarVal.textContent = 'Auto';
             }
         }
 
         function toggleTurntable() {
             isTurntable = !isTurntable;
-            document.getElementById('btn-turntable').classList.toggle('active', isTurntable);
+            const btnTurntable = document.getElementById('btn-turntable');
+            if (btnTurntable) btnTurntable.classList.toggle('active', isTurntable);
         }
 
         function toggleWireframe() {
             isWireframe = !isWireframe;
-            document.getElementById('btn-wireframe').classList.toggle('active', isWireframe);
+            const btnWireframe = document.getElementById('btn-wireframe');
+            if (btnWireframe) btnWireframe.classList.toggle('active', isWireframe);
             Object.values(mats).forEach(m => {
                 if (m && typeof m.wireframe === 'boolean') {
                     m.wireframe = isWireframe;
@@ -2167,16 +2172,20 @@
         function toggleStudioBg() {
             isDarkStudio = !isDarkStudio;
             const btn = document.getElementById('btn-bg');
-            btn.classList.toggle('active', isDarkStudio);
-            btn.textContent = isDarkStudio ? 'Light Studio' : 'Dark Studio';
+            if (btn) {
+                btn.classList.toggle('active', isDarkStudio);
+                btn.textContent = isDarkStudio ? 'Light Studio' : 'Dark Studio';
+            }
             scene.background = new THREE.Color(isDarkStudio ? 0x0b0c18 : 0xf2f2f5);
         }
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.style.opacity = '1';
-            setTimeout(() => { toast.style.opacity = '0'; }, 2800);
+            if (toast) {
+                toast.textContent = msg;
+                toast.style.opacity = '1';
+                setTimeout(() => { toast.style.opacity = '0'; }, 2800);
+            }
         }
 
         // Export Real .GLB 3D File Directly to User's Machine
