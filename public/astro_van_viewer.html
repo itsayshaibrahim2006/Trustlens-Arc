@@ -92,6 +92,30 @@
     <div id="canvas-container"></div>
 
     <script>
+        // Polyfill Canvas roundRect for all browsers
+        if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                if (typeof r === 'undefined') r = 0;
+                if (typeof r === 'number') r = { tl: r, tr: r, br: r, bl: r };
+                else {
+                    var defaultR = { tl: 0, tr: 0, br: 0, bl: 0 };
+                    for (var side in defaultR) r[side] = r[side] || defaultR[side];
+                }
+                this.beginPath();
+                this.moveTo(x + r.tl, y);
+                this.lineTo(x + w - r.tr, y);
+                this.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+                this.lineTo(x + w, y + h - r.br);
+                this.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+                this.lineTo(x + r.bl, y + h);
+                this.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+                this.lineTo(x, y + r.tl);
+                this.quadraticCurveTo(x, y, x + r.tl, y);
+                this.closePath();
+                return this;
+            };
+        }
+
         // ============================================================================
         // 1. PROCEDURAL TEXTURE GENERATORS (100% Self-Contained High-Res Textures)
         // ============================================================================
@@ -209,7 +233,15 @@
             grad.addColorStop(1, 'rgba(0, 245, 255, 0.42)');
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.roundRect(12, 12, 488, 616, 36);
+            if (typeof ctx.roundRect === 'function') {
+                try {
+                    ctx.roundRect(12, 12, 488, 616, 36);
+                } catch(e) {
+                    ctx.rect(12, 12, 488, 616);
+                }
+            } else {
+                ctx.rect(12, 12, 488, 616);
+            }
             ctx.fill();
 
             // Glowing border frame
@@ -732,7 +764,16 @@
 
         // Helper for Rounded Box Meshes
         function makeRBox(w, h, d, r, mat, segs = 4) {
-            const geo = new THREE.RoundedBoxGeometry(w, h, d, segs, r);
+            let geo;
+            if (typeof THREE.RoundedBoxGeometry !== 'undefined') {
+                try {
+                    geo = new THREE.RoundedBoxGeometry(w, h, d, segs, r);
+                } catch(e) {
+                    geo = new THREE.BoxGeometry(w, h, d);
+                }
+            } else {
+                geo = new THREE.BoxGeometry(w, h, d);
+            }
             const mesh = new THREE.Mesh(geo, mat);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
@@ -750,19 +791,29 @@
         // 4. MASTER 3D MODEL CONSTRUCTION (EVERY SINGLE DETAIL INCLUDED)
         // ============================================================================
         function buildCompleteModel() {
-            initMaterials();
+            try { initMaterials(); } catch(e) { console.error("Error in initMaterials:", e); }
 
             hoverVanGroup = new THREE.Group();
             scene.add(hoverVanGroup);
 
-            buildChassisAndCab();
-            buildFrontGrilleAndBullBar();
-            buildSideGreeblesAndExhaust();
-            buildRearHullDetails();
-            buildHoverThrusters();
-            buildRoofArrayAndRadar();
-            buildHologramProjector();
-            buildAstronautCharacter();
+            const builders = [
+                ['Chassis', buildChassisAndCab],
+                ['FrontGrille', buildFrontGrilleAndBullBar],
+                ['SideGreebles', buildSideGreeblesAndExhaust],
+                ['RearHull', buildRearHullDetails],
+                ['HoverThrusters', buildHoverThrusters],
+                ['RoofArray', buildRoofArrayAndRadar],
+                ['HologramProjector', buildHologramProjector],
+                ['Astronaut', buildAstronautCharacter]
+            ];
+
+            builders.forEach(([name, fn]) => {
+                try {
+                    fn();
+                } catch(err) {
+                    console.error("Failed building section " + name + ":", err);
+                }
+            });
 
             // Count total 3D meshes for the inspector badge
             let meshCount = 0;

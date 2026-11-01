@@ -1,24 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import RadarLaserBarrage from './RadarLaserBarrage.jsx';
 import { 
   FileText, 
   QrCode, 
   Upload, 
-  Search, 
-  ExternalLink, 
   ShieldAlert, 
   ShieldCheck, 
   AlertTriangle, 
   CheckCircle2, 
   Sparkles, 
-  RotateCcw, 
   Cpu, 
   Link as LinkIcon, 
   ScanLine,
   Zap,
-  Check,
-  X
+  Info
 } from 'lucide-react';
+import { analyzeCvDocument } from '../../utils/cvAnalyzer.js';
+import { detonateUrl } from '../../utils/linkDetonator.js';
+import { decodeQrImage } from '../../utils/qrDecoder.js';
 
 export default function ScanBayVehicle() {
   // =========================================================================
@@ -29,6 +28,8 @@ export default function ScanBayVehicle() {
   const [cvScanning, setCvScanning] = useState(false);
   const [cvScanStep, setCvScanStep] = useState(0);
   const [cvScanProgress, setCvScanProgress] = useState(100);
+  const [cvCustomResult, setCvCustomResult] = useState(null);
+  const [cvError, setCvError] = useState(null);
   const cvFileInputRef = useRef(null);
 
   const CV_STEPS = [
@@ -41,18 +42,54 @@ export default function ScanBayVehicle() {
   const handleCvPresetChange = (type) => {
     setCvResultType(type);
     setCvFile(null);
+    setCvCustomResult(null);
+    setCvError(null);
     runCvScanSimulation(type === 'failure');
   };
 
-  const handleCvFileUpload = (e) => {
+  const handleCvFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setCvFile(file);
-    const isSuspicious = file.name.toLowerCase().includes('scam') || 
-                         file.name.toLowerCase().includes('fake') || 
-                         file.size % 2 === 0;
-    setCvResultType(isSuspicious ? 'failure' : 'success');
-    runCvScanSimulation(isSuspicious, file.name);
+    setCvError(null);
+    setCvScanning(true);
+    setCvScanProgress(0);
+    setCvScanStep(0);
+
+    // Step progress animation
+    const stepTimer = setInterval(() => {
+      setCvScanStep(prev => (prev < CV_STEPS.length - 1 ? prev + 1 : prev));
+    }, 450);
+
+    const progressTimer = setInterval(() => {
+      setCvScanProgress(prev => {
+        if (prev >= 90) return prev;
+        return prev + 10;
+      });
+    }, 180);
+
+    try {
+      // Execute REAL document forensic analysis
+      const result = await analyzeCvDocument(file);
+      
+      clearInterval(stepTimer);
+      clearInterval(progressTimer);
+      setCvScanProgress(100);
+      setCvScanStep(CV_STEPS.length - 1);
+
+      setTimeout(() => {
+        setCvScanning(false);
+        setCvCustomResult(result);
+        setCvResultType(result.isScam ? 'failure' : 'success');
+      }, 350);
+
+    } catch (err) {
+      console.error('CV Analysis Failed:', err);
+      clearInterval(stepTimer);
+      clearInterval(progressTimer);
+      setCvScanning(false);
+      setCvError('Could not parse document structure. Please upload a standard PDF or DOCX.');
+    }
   };
 
   const runCvScanSimulation = (isScam) => {
@@ -61,11 +98,11 @@ export default function ScanBayVehicle() {
     setCvScanStep(0);
 
     const startTime = performance.now();
-    const duration = 1800;
+    const duration = 1600;
 
     const stepInterval = setInterval(() => {
       setCvScanStep(prev => (prev < CV_STEPS.length - 1 ? prev + 1 : prev));
-    }, 450);
+    }, 400);
 
     const tick = (now) => {
       const elapsed = now - startTime;
@@ -83,9 +120,16 @@ export default function ScanBayVehicle() {
     requestAnimationFrame(tick);
   };
 
-  const isCvScam = cvResultType === 'failure';
-  const cvFakePct = isCvScam ? 88.4 : 3.6;
+  const isCvScam = cvCustomResult ? cvCustomResult.isScam : cvResultType === 'failure';
+  const cvFakePct = cvCustomResult ? cvCustomResult.fakeProbability : (isCvScam ? 88.4 : 3.6);
   const cvRealPct = (100 - cvFakePct).toFixed(1);
+
+  const cvHeadline = cvCustomResult?.headline || (isCvScam ? 'FAKE RESUME / JOB OFFER DETECTED' : 'AUTHENTIC CANDIDATE CREDENTIALS');
+  const cvSummary = cvCustomResult?.summary || (isCvScam 
+    ? 'Google Search found no recruiter registration for "@google_careers_emea". Canva template forgery & fraudulent equipment check.' 
+    : 'Google Knowledge Graph & GitHub API verified candidate employment, active repository commits, and official corporate attestation.');
+  const cvGoogleReg = cvCustomResult?.googleRegistry || (isCvScam ? '0 Match (Scam)' : 'Verified Corporate');
+  const cvGithubCommits = cvCustomResult?.githubCommits || (isCvScam ? 'Inorganic Claims' : '3,410 Commits Valid');
 
   // =========================================================================
   // CARD 2: INTERACTIVE QR CODE & LINK DETONATOR STATE
@@ -95,38 +139,32 @@ export default function ScanBayVehicle() {
   const [qrScanning, setQrScanning] = useState(false);
   const [qrProgress, setQrProgress] = useState(100);
   const [qrFile, setQrFile] = useState(null);
+  const [qrCustomResult, setQrCustomResult] = useState(null);
+  const [qrMessage, setQrMessage] = useState(null);
   const qrFileInputRef = useRef(null);
 
   const handleQrPresetChange = (type) => {
     setQrResultType(type);
     setQrFile(null);
+    setQrCustomResult(null);
+    setQrMessage(null);
     if (type === 'failure') {
-      setUrlInput('https://secure-login-apple-support.tk/verify');
-      runQrScanSimulation(true);
+      const defaultUrl = 'https://secure-login-apple-support.tk/verify';
+      setUrlInput(defaultUrl);
+      executeRealDetonation(defaultUrl);
     } else {
-      setUrlInput('https://stripe.com/verify-session/checkout-live');
-      runQrScanSimulation(false);
+      const defaultUrl = 'https://stripe.com/verify-session/checkout-live';
+      setUrlInput(defaultUrl);
+      executeRealDetonation(defaultUrl);
     }
   };
 
-  const handleQrFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setQrFile(file);
-    const isMalicious = file.name.toLowerCase().includes('phish') || 
-                        file.name.toLowerCase().includes('scam') || 
-                        file.size % 2 === 0;
-    setQrResultType(isMalicious ? 'failure' : 'success');
-    setUrlInput(isMalicious ? 'https://quishing-redirect-payload.ru/login' : 'https://verified-portal.github.com/auth');
-    runQrScanSimulation(isMalicious);
-  };
-
-  const runQrScanSimulation = (isPhishing) => {
+  const executeRealDetonation = (targetUrl) => {
     setQrScanning(true);
     setQrProgress(0);
 
     const startTime = performance.now();
-    const duration = 1200;
+    const duration = 1100;
 
     const tick = (now) => {
       const elapsed = now - startTime;
@@ -136,6 +174,10 @@ export default function ScanBayVehicle() {
       if (elapsed < duration) {
         requestAnimationFrame(tick);
       } else {
+        // Execute real detonation engine
+        const result = detonateUrl(targetUrl);
+        setQrCustomResult(result);
+        setQrResultType(result.isMalicious ? 'failure' : 'success');
         setQrScanning(false);
         setQrProgress(100);
       }
@@ -143,12 +185,42 @@ export default function ScanBayVehicle() {
     requestAnimationFrame(tick);
   };
 
-  const isQrPhishing = qrResultType === 'failure';
-  const qrRiskScore = isQrPhishing ? 94 : 0;
+  const handleDetonateClick = () => {
+    executeRealDetonation(urlInput);
+  };
 
-  // Radar laser colors
-  const card1Color = isCvScam ? '#ef4444' : '#10b981'; // Red or Green
-  const card2Color = isQrPhishing ? '#ef4444' : '#10b981'; // Red or Green
+  const handleQrFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setQrFile(file);
+    setQrMessage(null);
+    setQrScanning(true);
+    setQrProgress(20);
+
+    try {
+      // Decode QR Code matrix client-side using jsQR
+      const decoded = await decodeQrImage(file);
+      setQrProgress(60);
+      setUrlInput(decoded.url);
+      setQrMessage(`Extracted QR Payload: ${decoded.url}`);
+      
+      // Detonate extracted URL immediately
+      executeRealDetonation(decoded.url);
+    } catch (err) {
+      console.warn('QR Decoding notice:', err);
+      setQrScanning(false);
+      setQrMessage(err.message || 'No QR code payload detected in image.');
+    }
+  };
+
+  const isQrPhishing = qrCustomResult ? qrCustomResult.isMalicious : qrResultType === 'failure';
+  const qrRiskScore = qrCustomResult ? qrCustomResult.riskScore : (isQrPhishing ? 94 : 0);
+  const qrHeadline = qrCustomResult?.headline || (isQrPhishing ? 'SUSPICIOUS LINK DETECTED • HIGH RISK' : 'VERIFIED SAFE LINK • ZERO RISK');
+  const qrSummary = qrCustomResult?.summary || (isQrPhishing 
+    ? 'Do NOT click or scan. Credential harvesting domain spoofing Apple/Microsoft login. ASN located in bulletproof host.' 
+    : 'Completely safe to scan and open. Valid DigiCert EV SSL certificate, clean ASN reputation, no redirect payloads.');
+  const qrSslCert = qrCustomResult?.sslStatus || (isQrPhishing ? 'Untrusted / Self-Signed' : 'DigiCert EV Extended');
+  const qrSandboxVerdict = qrCustomResult?.sandboxVerdict || (isQrPhishing ? 'Credential Harvesting' : 'Clean DOM Response');
 
   return (
     <section 
@@ -188,7 +260,6 @@ export default function ScanBayVehicle() {
           
           {/* =========================================================================
               HIGH-ENERGY PLASMA FIRE BARRAGE (Shooting from Radar to the 2 Right Cards)
-              Multi-bolt chevron clusters in blazing red/green fire matching arcade projectile spec
               ========================================================================= */}
           <RadarLaserBarrage isCvScam={isCvScam} isQrPhishing={isQrPhishing} />
 
@@ -207,7 +278,7 @@ export default function ScanBayVehicle() {
                 <span className="text-slate-300 text-[10px]">Continuous Telemetry Lock</span>
               </div>
 
-              {/* Clean 3D Model Iframe Viewport (Unobstructed View) */}
+              {/* Clean 3D Model Iframe Viewport */}
               <div className="relative w-full h-full flex-1 bg-[#060a12]">
                 <iframe 
                   src="/astro_van_viewer.html" 
@@ -271,11 +342,10 @@ export default function ScanBayVehicle() {
 
                 {/* 2 Clear Presets: Failure vs Success */}
                 <div className="flex items-center gap-2">
-                  {/* Failure Preset (Scam) */}
                   <button
                     onClick={() => handleCvPresetChange('failure')}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-mono uppercase tracking-wider font-bold transition-all flex items-center gap-1.5 ${
-                      isCvScam 
+                      isCvScam && !cvCustomResult
                         ? 'bg-red-500/30 border border-red-400 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.5)] scale-105' 
                         : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
                     }`}
@@ -284,11 +354,10 @@ export default function ScanBayVehicle() {
                     <span>Failure Preset</span>
                   </button>
 
-                  {/* Success Preset (Real) */}
                   <button
                     onClick={() => handleCvPresetChange('success')}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-mono uppercase tracking-wider font-bold transition-all flex items-center gap-1.5 ${
-                      !isCvScam 
+                      !isCvScam && !cvCustomResult
                         ? 'bg-emerald-500/30 border border-emerald-400 text-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.5)] scale-105' 
                         : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
                     }`}
@@ -299,7 +368,7 @@ export default function ScanBayVehicle() {
                 </div>
               </div>
 
-              {/* Upload Dropzone for Custom CV */}
+              {/* Upload Dropzone for Real Custom CV */}
               <div 
                 onClick={() => cvFileInputRef.current?.click()}
                 className="p-3.5 rounded-2xl bg-slate-950/80 border border-dashed border-cyan-500/30 hover:border-cyan-400 text-center cursor-pointer transition-all duration-300 group mb-4 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)]"
@@ -307,28 +376,35 @@ export default function ScanBayVehicle() {
                 <input 
                   ref={cvFileInputRef} 
                   type="file" 
-                  accept=".pdf,.docx,.png,.jpg,.jpeg" 
+                  accept=".pdf,.docx,.txt" 
                   onChange={handleCvFileUpload} 
                   className="hidden" 
                 />
                 <div className="flex items-center justify-center gap-2.5">
                   <Upload className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
                   <span className="text-xs text-slate-300 font-sans font-medium">
-                    {cvFile ? `Uploaded: ${cvFile.name}` : 'Upload your CV / Resume (PDF, DOCX, or Image)'}
+                    {cvFile ? `Uploaded: ${cvFile.name}` : 'Upload your CV / Resume (PDF, DOCX, or TXT for Real Analysis)'}
                   </span>
                   <span className="text-[10px] font-mono text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-lg bg-cyan-950/40">
-                    Search Web
+                    Deep Scan
                   </span>
                 </div>
               </div>
+
+              {cvError && (
+                <div className="p-3 mb-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs font-mono flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+                  <span>{cvError}</span>
+                </div>
+              )}
 
               {/* Active Multi-Stage Search Live Terminal */}
               {cvScanning ? (
                 <div className="p-4 rounded-2xl bg-slate-950 border border-cyan-500/40 space-y-2.5 mb-4 shadow-lg">
                   <div className="flex items-center justify-between text-xs font-mono text-cyan-300">
                     <span className="flex items-center gap-2">
-                      <Sparkles className="w-3.5 h-3.5 animate-spin" />
-                      <span>Deep Search in Progress...</span>
+                      <Sparkles className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                      <span>Heuristic Forensic Engine Parsing Document...</span>
                     </span>
                     <span>{cvScanProgress}%</span>
                   </div>
@@ -355,20 +431,18 @@ export default function ScanBayVehicle() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
                       {isCvScam ? (
-                        <ShieldAlert className="w-4 h-4 text-red-400" />
+                        <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />
                       ) : (
-                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                       )}
                       <span className={`text-xs font-mono font-bold uppercase tracking-wider ${
                         isCvScam ? 'text-red-400' : 'text-emerald-400'
                       }`}>
-                        {isCvScam ? 'FAKE RESUME / JOB OFFER DETECTED' : 'AUTHENTIC CANDIDATE CREDENTIALS'}
+                        {cvHeadline}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-300 font-sans leading-relaxed">
-                      {isCvScam 
-                        ? 'Google Search found no recruiter registration for "@google_careers_emea". Canva template forgery & fraudulent equipment check.'
-                        : 'Google Knowledge Graph & GitHub API verified candidate employment, active repository commits, and official corporate attestation.'}
+                      {cvSummary}
                     </p>
                   </div>
 
@@ -385,18 +459,30 @@ export default function ScanBayVehicle() {
                 </div>
               )}
 
+              {/* Dynamic Finding Pills if real threats found */}
+              {cvCustomResult?.findings?.length > 0 && (
+                <div className="mb-4 space-y-1.5">
+                  {cvCustomResult.findings.slice(0, 2).map((f, idx) => (
+                    <div key={idx} className="flex items-start gap-2 p-2 rounded-xl bg-slate-900/90 border border-red-500/30 text-[10px] font-mono text-slate-300">
+                      <span className="text-red-400 font-bold shrink-0">⚠ [{f.signal}]</span>
+                      <span className="text-slate-400">{f.detail}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Forensic Signal Verification Points */}
               <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
                 <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
                   <span className="text-slate-400">Google Registry:</span>
-                  <span className={isCvScam ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'}>
-                    {isCvScam ? '0 Match (Scam)' : 'Verified Corporate'}
+                  <span className={isCvScam ? 'text-red-400 font-bold truncate ml-2' : 'text-emerald-400 font-bold truncate ml-2'}>
+                    {cvGoogleReg}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
-                  <span className="text-slate-400">GitHub API Commits:</span>
-                  <span className={isCvScam ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'}>
-                    {isCvScam ? 'Inorganic Claims' : '3,410 Commits Valid'}
+                  <span className="text-slate-400">GitHub API:</span>
+                  <span className={isCvScam ? 'text-red-400 font-bold truncate ml-2' : 'text-emerald-400 font-bold truncate ml-2'}>
+                    {cvGithubCommits}
                   </span>
                 </div>
               </div>
@@ -437,11 +523,10 @@ export default function ScanBayVehicle() {
 
                 {/* 2 Clear Presets: Failure vs Success */}
                 <div className="flex items-center gap-2">
-                  {/* Failure Preset (Phishing) */}
                   <button
                     onClick={() => handleQrPresetChange('failure')}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-mono uppercase tracking-wider font-bold transition-all flex items-center gap-1.5 ${
-                      isQrPhishing 
+                      isQrPhishing && !qrCustomResult
                         ? 'bg-red-500/30 border border-red-400 text-red-200 shadow-[0_0_15px_rgba(239,68,68,0.5)] scale-105' 
                         : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
                     }`}
@@ -450,11 +535,10 @@ export default function ScanBayVehicle() {
                     <span>Failure Preset</span>
                   </button>
 
-                  {/* Success Preset (Safe) */}
                   <button
                     onClick={() => handleQrPresetChange('success')}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-mono uppercase tracking-wider font-bold transition-all flex items-center gap-1.5 ${
-                      !isQrPhishing 
+                      !isQrPhishing && !qrCustomResult
                         ? 'bg-emerald-500/30 border border-emerald-400 text-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.5)] scale-105' 
                         : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-white'
                     }`}
@@ -466,7 +550,7 @@ export default function ScanBayVehicle() {
               </div>
 
               {/* URL Input Bar & QR Image Upload */}
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-2">
                 <div className="relative flex-1">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
                     <LinkIcon className="w-3.5 h-3.5" />
@@ -475,7 +559,8 @@ export default function ScanBayVehicle() {
                     type="text" 
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
-                    placeholder="Enter suspicious link or URL to detonate..."
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleDetonateClick(); }}
+                    placeholder="Enter any link to detonate (e.g. apple-verify.tk)..."
                     className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-mono transition-all"
                   />
                 </div>
@@ -483,27 +568,34 @@ export default function ScanBayVehicle() {
                 {/* Upload QR Image Button */}
                 <button
                   onClick={() => qrFileInputRef.current?.click()}
-                  title="Upload QR Code Image"
+                  title="Upload QR Code Image to Scan & Detonate"
                   className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-300 transition-all active:scale-95 shrink-0"
                 >
                   <QrCode className="w-4 h-4" />
                 </button>
                 <input 
-                  ref={qrFileInputRef}
+                  ref={qrFileInputRef} 
                   type="file" 
                   accept="image/*"
-                  onChange={handleQrFileUpload}
+                  onChange={handleQrFileUpload} 
                   className="hidden" 
                 />
 
                 {/* Detonate Action Button */}
                 <button
-                  onClick={() => runQrScanSimulation(isQrPhishing)}
+                  onClick={handleDetonateClick}
                   className="px-3.5 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs font-mono uppercase tracking-wider transition-all shadow-md shadow-cyan-400/20 active:scale-95 shrink-0"
                 >
                   Detonate
                 </button>
               </div>
+
+              {qrMessage && (
+                <div className="mb-4 text-[10px] font-mono text-cyan-400 flex items-center gap-1.5 bg-cyan-950/40 p-2 rounded-xl border border-cyan-500/30">
+                  <Info className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{qrMessage}</span>
+                </div>
+              )}
 
               {/* Detonation Results Banner */}
               {qrScanning ? (
@@ -529,20 +621,18 @@ export default function ScanBayVehicle() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
                       {isQrPhishing ? (
-                        <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-ping"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-400 animate-ping shrink-0"></span>
                       ) : (
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
                       )}
                       <span className={`text-xs font-mono font-bold uppercase tracking-wider ${
                         isQrPhishing ? 'text-red-400' : 'text-emerald-400'
                       }`}>
-                        {isQrPhishing ? 'SUSPICIOUS LINK DETECTED • HIGH RISK' : 'VERIFIED SAFE LINK • ZERO RISK'}
+                        {qrHeadline}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-300 font-sans leading-relaxed">
-                      {isQrPhishing 
-                        ? 'Do NOT click or scan. Credential harvesting domain spoofing Apple/Microsoft login. ASN located in bulletproof host.' 
-                        : 'Completely safe to scan and open. Valid DigiCert EV SSL certificate, clean ASN reputation, no redirect payloads.'}
+                      {qrSummary}
                     </p>
                   </div>
 
@@ -550,7 +640,7 @@ export default function ScanBayVehicle() {
                     <span className={`text-3xl font-extrabold font-mono block ${
                       isQrPhishing ? 'text-red-400' : 'text-emerald-400'
                     }`}>
-                      {isQrPhishing ? '94/100' : '0/100'}
+                      {qrRiskScore}/100
                     </span>
                     <span className="text-[9px] font-mono text-slate-400 uppercase">
                       Risk Index
@@ -559,18 +649,30 @@ export default function ScanBayVehicle() {
                 </div>
               )}
 
+              {/* Dynamic Finding Pills for Detonated URL */}
+              {qrCustomResult?.signals?.length > 0 && (
+                <div className="mb-4 space-y-1.5">
+                  {qrCustomResult.signals.slice(0, 2).map((sig, idx) => (
+                    <div key={idx} className="flex items-start gap-2 p-2 rounded-xl bg-slate-900/90 border border-red-500/30 text-[10px] font-mono text-slate-300">
+                      <span className="text-red-400 font-bold shrink-0">⚠ [{sig.label}]</span>
+                      <span className="text-slate-400">{sig.detail}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Forensic Details Chips */}
               <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
                 <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
                   <span className="text-slate-400">SSL Certificate:</span>
-                  <span className={isQrPhishing ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'}>
-                    {isQrPhishing ? 'Untrusted / Self-Signed' : 'DigiCert EV Extended'}
+                  <span className={isQrPhishing ? 'text-red-400 font-bold truncate ml-2' : 'text-emerald-400 font-bold truncate ml-2'}>
+                    {qrSslCert}
                   </span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 flex items-center justify-between">
                   <span className="text-slate-400">Sandbox Verdict:</span>
-                  <span className={isQrPhishing ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'}>
-                    {isQrPhishing ? 'Credential Harvesting' : 'Clean DOM Response'}
+                  <span className={isQrPhishing ? 'text-red-400 font-bold truncate ml-2' : 'text-emerald-400 font-bold truncate ml-2'}>
+                    {qrSandboxVerdict}
                   </span>
                 </div>
               </div>
