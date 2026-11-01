@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import InteractiveRobotSentinel from '../InteractiveRobotSentinel.jsx';
 import { analyzeImageForensics } from '../../utils/imageForensics.js';
+import { analyzeVideoForensics } from '../../utils/videoForensics.js';
 
 // Modern 2026 Forensic Presets (Diffusion, Sora, Physical DSLR)
 const FORENSIC_PRESETS = [
@@ -203,13 +204,10 @@ export default function BiometricDeepfakes() {
           });
         }, 250);
       } else {
-        // Video Stream Ingestion (Temporal Coherence & Optical Flow)
+        // Run Real Multi-Frame Video Forensics (Temporal Jitter, Face X-Ray Seams, VAE Noise)
+        const analysis = await analyzeVideoForensics(file);
         clearInterval(progressTimer);
         setScanProgress(100);
-        const isSimulatedAI = file.name.toLowerCase().includes('ai') || 
-                              file.name.toLowerCase().includes('deepfake') || 
-                              file.name.toLowerCase().includes('synthetic');
-        const calculatedFakePct = isSimulatedAI ? 95.2 : 2.4;
 
         setTimeout(() => {
           setIsScanning(false);
@@ -217,19 +215,13 @@ export default function BiometricDeepfakes() {
             id: 'custom-' + Date.now(),
             title: file.name,
             type: 'video',
-            badge: isSimulatedAI ? 'Temporal Deepfake Video' : 'Authentic Video Stream',
-            isAI: isSimulatedAI,
-            fakePct: calculatedFakePct,
+            badge: analysis.isAI ? 'Temporal Deepfake Video' : 'Authentic Video Stream',
+            isAI: analysis.isAI,
+            fakePct: analysis.fakePct,
             mediaUrl: objectUrl,
-            summary: isSimulatedAI 
-              ? 'Flagged by Stream C Face-Boundary & Optical Flow Blending. Inter-frame facial seam discontinuities detected around mouth boundaries.' 
-              : 'Confirmed Real Video. Natural motion blur, consistent frame-to-frame optical flow, and authentic sensor noise verified.',
-            signals: [
-              { name: 'Stream C: Temporal Coherence', score: isSimulatedAI ? '95.2%' : '98.1%', status: isSimulatedAI ? 'fail' : 'pass', detail: isSimulatedAI ? 'Optical flow boundary jitter' : 'Continuous frame temporal trajectory' },
-              { name: 'Stream A: VAE Reconstruction', score: isSimulatedAI ? '92.4%' : '97.0%', status: isSimulatedAI ? 'fail' : 'pass', detail: isSimulatedAI ? 'Latent space decompression anomalies' : 'Continuous physical photon distribution' },
-              { name: 'Stream B: Vision Priors (CLIP)', score: isSimulatedAI ? '91.8%' : '96.4%', status: isSimulatedAI ? 'fail' : 'pass', detail: isSimulatedAI ? 'Asymmetric pupil reflection phase' : 'Consistent ambient lighting physics' },
-              { name: 'Stage 1: Container Provenance', score: isSimulatedAI ? '0.0%' : '99.0%', status: isSimulatedAI ? 'fail' : 'pass', detail: isSimulatedAI ? 'Missing hardware camera MP4 atom' : 'Valid camera metadata atom signatures' }
-            ]
+            heatmapUrl: analysis.heatmapUrl,
+            summary: analysis.summary,
+            signals: analysis.signals
           });
         }, 250);
       }
@@ -335,7 +327,7 @@ export default function BiometricDeepfakes() {
                 className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400 hover:from-cyan-300 hover:to-teal-200 text-slate-950 font-bold text-xs tracking-wider uppercase font-mono transition-all flex items-center gap-2 shadow-lg shadow-cyan-500/25 active:scale-95"
               >
                 <Upload className="w-4 h-4 text-slate-950" />
-                <span>Upload Custom Image</span>
+                <span>Upload Media (Image / Video)</span>
               </button>
 
               <input 
@@ -370,6 +362,15 @@ export default function BiometricDeepfakes() {
                       isZoomed ? 'scale-125' : 'scale-100'
                     } ${showHeatmap ? 'filter saturate-200 hue-rotate-90 contrast-125' : ''}`}
                   />
+                  {/* Pixel-Level Forgery Heatmap Overlay for Video */}
+                  {showHeatmap && currentData.heatmapUrl && (
+                    <img 
+                      src={currentData.heatmapUrl} 
+                      alt="Pixel-Level Forgery Heatmap"
+                      className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-75 pointer-events-none transition-opacity duration-300 z-10"
+                    />
+                  )}
+
                   {/* Video Play/Pause Overlay Button */}
                   <button
                     onClick={toggleVideo}
