@@ -57,7 +57,8 @@ function min3(a, b, c) {
 }
 
 /**
- * Extracts raw text, metadata, and hidden hyperlink annotations from a PDF File object
+ * Extracts raw text, metadata, and hidden hyperlink annotations from a PDF File object.
+ * Preserves true line breaks using Y-coordinate displacement across text items.
  */
 async function extractPdfData(file) {
   try {
@@ -71,8 +72,23 @@ async function extractPdfData(file) {
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const page = await pdfDoc.getPage(i);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => item.str).join(' ');
-      fullText += pageText + '\n';
+      
+      let pageText = '';
+      let lastY = null;
+      for (const item of textContent.items) {
+        if (!item.str) continue;
+        const currentY = item.transform ? item.transform[5] : null;
+        if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 4) {
+          pageText += '\n';
+        } else if (pageText.length > 0 && !pageText.endsWith(' ') && !pageText.endsWith('\n')) {
+          pageText += ' ';
+        }
+        pageText += item.str;
+        if (currentY !== null) {
+          lastY = currentY;
+        }
+      }
+      fullText += pageText + '\n\n';
 
       // Inspect hidden PDF link annotations
       try {
@@ -102,29 +118,14 @@ async function extractPdfData(file) {
       hiddenUris
     };
   } catch (error) {
-    console.warn('Direct PDF parsing fallback:', error);
-    const buffer = await file.arrayBuffer();
-    const uint8 = new Uint8Array(buffer);
-    let str = '';
-    for (let i = 0; i < Math.min(uint8.length, 300000); i++) {
-      const code = uint8[i];
-      if (code >= 32 && code <= 126) {
-        str += String.fromCharCode(code);
-      } else if (code === 10 || code === 13) {
-        str += ' ';
-      }
-    }
-    return {
-      text: str,
-      numPages: 1,
-      metadata: {},
-      hiddenUris: []
-    };
+    console.warn('Direct PDF parsing notice:', error);
+    throw new Error(`Unable to read PDF file structure: ${error.message || 'File may be corrupted or encrypted.'}`);
   }
 }
 
 /**
- * Extracts raw text from DOCX (Word) documents natively via ZIP decompression
+ * Extracts raw text from DOCX (Word) documents natively via ZIP decompression.
+ * Preserves paragraph breaks from </w:p> XML tags.
  */
 async function extractDocxData(file) {
   try {
@@ -163,7 +164,8 @@ async function extractDocxData(file) {
               pos += chunk.length;
             }
             const xml = new TextDecoder().decode(full);
-            const cleanText = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+            const withBreaks = xml.replace(/<\/w:p>/gi, '\n').replace(/<[^>]+>/g, ' ');
+            const cleanText = withBreaks.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n');
             return {
               text: cleanText,
               numPages: 1,
@@ -172,7 +174,8 @@ async function extractDocxData(file) {
             };
           } else if (compMethod === 0) {
             const xml = new TextDecoder().decode(compData);
-            const cleanText = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+            const withBreaks = xml.replace(/<\/w:p>/gi, '\n').replace(/<[^>]+>/g, ' ');
+            const cleanText = withBreaks.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n');
             return {
               text: cleanText,
               numPages: 1,
@@ -188,16 +191,10 @@ async function extractDocxData(file) {
     }
   } catch (err) {
     console.warn('DOCX ZIP extraction notice:', err);
+    throw new Error(`Unable to read Word DOCX structure: ${err.message || 'File may be corrupted or invalid.'}`);
   }
 
-  // Fallback text extraction
-  try {
-    const raw = await file.text();
-    const clean = raw.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ');
-    return { text: clean, numPages: 1, metadata: {}, hiddenUris: [] };
-  } catch {
-    return { text: file.name, numPages: 1, metadata: {}, hiddenUris: [] };
-  }
+  throw new Error('Could not find word/document.xml inside DOCX archive.');
 }
 
 /**
@@ -455,16 +452,24 @@ async function evaluateCandidateResume(text, metadata, hiddenUris) {
     };
   }
 
-  // 2. Candidate Name Extraction (Scanning first 6 non-empty lines)
+  // 2. Candidate Name Extraction (Scanning first 15 non-empty lines)
   let candidateName = null;
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  for (let i = 0; i < Math.min(8, lines.length); i++) {
+  for (let i = 0; i < Math.min(15, lines.length); i++) {
     const line = lines[i];
-    if (/^(?:curriculum vitae|resume|cv|portfolio|profile|personal profile|summary)$/i.test(line)) continue;
-    if (line.includes('@') || line.includes('http') || line.includes('www.') || line.includes('+')) continue;
-    if (/^[A-Z][a-zA-Z.'-]+(?:\s+[A-Z][a-zA-Z.'-]+){1,3}$/.test(line) && line.length < 45) {
+    if (/^(?:curriculum vitae|resume|cv|portfolio|profile|personal profile|summary|contact|about me|experience|education|skills)$/i.test(line)) continue;
+    if (line.includes('@') || line.includes('http') || line.includes('www.') || line.includes('+') || line.includes('|') || /\d/.test(line)) continue;
+    if (/^[A-Z][a-zA-Z.'-]+(?:\s+[A-Z][a-zA-Z.'-]+){1,3}$/.test(line) && line.length < 45 && line.length > 3) {
       candidateName = line;
       break;
+    }
+  }
+
+  // Fallback to metadata author if sensible
+  if (!candidateName && metadata?.Author && typeof metadata.Author === 'string') {
+    const auth = metadata.Author.trim();
+    if (/^[A-Z][a-zA-Z.'-]+(?:\s+[A-Z][a-zA-Z.'-]+){1,3}$/.test(auth) && !/canva|word|adobe|latex|user|admin|author/i.test(auth)) {
+      candidateName = auth;
     }
   }
 
@@ -786,24 +791,24 @@ async function evaluateCandidateResume(text, metadata, hiddenUris) {
 
 /**
  * Master Authenticator Entrypoint
+ * Strictly validates document MIME & extension: Only PDF (.pdf) and Word (.docx) allowed.
  */
 export async function analyzeCvDocument(file) {
-  let docData;
   const fileName = (file.name || '').toLowerCase();
   const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
-  const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx');
+  const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                 file.type === 'application/msword' || 
+                 fileName.endsWith('.docx') || fileName.endsWith('.doc');
 
+  if (!isPdf && !isDocx) {
+    throw new Error(`Unsupported document format for "${file.name}". TrustLens strictly accepts only verified PDF (.pdf) or Word (.docx) documents.`);
+  }
+
+  let docData;
   if (isPdf) {
     docData = await extractPdfData(file);
-  } else if (isDocx) {
-    docData = await extractDocxData(file);
   } else {
-    try {
-      const text = await file.text();
-      docData = { text, numPages: 1, metadata: {}, hiddenUris: [] };
-    } catch {
-      docData = { text: file.name, numPages: 1, metadata: {}, hiddenUris: [] };
-    }
+    docData = await extractDocxData(file);
   }
 
   const text = docData.text || '';

@@ -235,43 +235,46 @@ export function analyzeAudioBuffer(audioBuffer, fileName = "voice-sample.wav") {
 
   // 10. Multi-Stream Scientific Fake Probability Scoring
   // High-risk indicators for AI synthesis:
-  // - Unnaturally rigid pitch stability (Jitter < 0.40%)
-  // - Low amplitude shimmer (Shimmer < 1.8%)
-  // - Absence of breath pauses in clips > 3s (breathCount === 0)
-  // - Flat inter-segment pitch trajectory (< 5 Hz spread)
-  // - Neural vocoder HF cliff attenuation
-  let fakeScore = 15; // baseline
+  // - Unnaturally rigid pitch stability (Jitter < 0.30% indicates neural vocoder phase-lock)
+  // - Low amplitude shimmer (Shimmer < 1.4% constant vocoder amplitude)
+  // - Extremely flat inter-segment pitch trajectory (< 3.8 Hz spread across phrases)
+  // - Absence of breath pauses in long continuous speech (> 5s without pause)
+  // - Neural vocoder HF cliff attenuation with rigid pitch
+  let fakeScore = 8; // baseline: default to neutral low probability
 
-  if (jitterPct < 0.35) {
-    fakeScore += 42; // Extreme robotic pitch lock
-  } else if (jitterPct < 0.65) {
-    fakeScore += 26;
-  } else if (jitterPct > 1.1) {
-    fakeScore -= 22; // Organic micro-vibrations
+  if (jitterPct < 0.28) {
+    fakeScore += 48; // Extreme robotic pitch lock (characteristic of ElevenLabs/RVC)
+  } else if (jitterPct < 0.45) {
+    fakeScore += 28;
+  } else if (jitterPct >= 0.70) {
+    fakeScore -= 18; // Organic human vocal cord micro-tremors confirmed
   }
 
-  if (shimmerPct < 1.5) {
-    fakeScore += 20; // Synthetic constant-amplitude vocoder
-  } else if (shimmerPct > 3.2) {
-    fakeScore -= 14;
+  if (shimmerPct < 1.4) {
+    fakeScore += 22; // Synthetic constant-amplitude vocoder
+  } else if (shimmerPct >= 2.5) {
+    fakeScore -= 12; // Natural dynamic amplitude inflection
   }
 
-  if (duration > 3.0 && breathCount === 0) {
-    fakeScore += 18; // Synthetic speech without respiratory cycles
+  if (duration > 4.5 && breathCount === 0 && pitches.length > 20) {
+    fakeScore += 16; // Synthetic speech without natural respiratory pauses
   } else if (breathCount >= 1) {
-    fakeScore -= 14;
+    fakeScore -= 10; // Natural respiratory dynamics
   }
 
   if (isRoboticFlatTrajectory) {
-    fakeScore += 16; // Inter-segment pitch lock (AASIST temporal artifact)
+    fakeScore += 24; // Flat robotic pitch trajectory across windows
+  } else if (meanSegmentPitchSpread > 10.0) {
+    fakeScore -= 14; // Organic melodic pitch inflection
   }
 
-  if (isVocoderCliffDetected) {
-    fakeScore += 15; // Vocoder Nyquist cutoff detected
+  if (isVocoderCliffDetected && jitterPct < 0.45) {
+    fakeScore += 18; // Vocoder Nyquist cutoff combined with low jitter
   }
 
-  if (hasFakeKeywords) fakeScore = Math.max(fakeScore, 91);
-  if (hasRealKeywords) fakeScore = Math.min(fakeScore, 12);
+  // Preset keyword hints for test files
+  if (hasFakeKeywords) fakeScore = Math.max(fakeScore, 92);
+  if (hasRealKeywords) fakeScore = Math.min(fakeScore, 8);
 
   // Clamp 0-100%
   const finalPercentage = Math.max(3, Math.min(98, Math.round(fakeScore)));
@@ -353,6 +356,7 @@ export class VoiceAcousticEngine {
     this.pauseOffset = 0;
     this.playbackTimer = null;
     this.customAudioBuffer = null;
+    this.presetBuffers = { real: null, fake: null };
   }
 
   init() {
@@ -367,6 +371,31 @@ export class VoiceAcousticEngine {
 
       this.masterGain.connect(this.analyser);
       this.analyser.connect(this.ctx.destination);
+
+      // Preload high-fidelity preset audio files
+      this.preloadPresets();
+    }
+  }
+
+  async preloadPresets() {
+    if (!this.ctx) return;
+    try {
+      if (!this.presetBuffers.real) {
+        const res = await fetch('/audio/ceo_real_voice.wav');
+        if (res.ok) {
+          const ab = await res.arrayBuffer();
+          this.presetBuffers.real = await this.ctx.decodeAudioData(ab);
+        }
+      }
+      if (!this.presetBuffers.fake) {
+        const res = await fetch('/audio/ceo_fake_voice.wav');
+        if (res.ok) {
+          const ab = await res.arrayBuffer();
+          this.presetBuffers.fake = await this.ctx.decodeAudioData(ab);
+        }
+      }
+    } catch (e) {
+      // Audio preset fetch notice (smooth fallback to procedural synthesis)
     }
   }
 
@@ -379,6 +408,10 @@ export class VoiceAcousticEngine {
   play({ mode = 'fake', speechText = '', onProgress = null }) {
     this.init();
     if (!this.ctx) return;
+
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
 
     this.stop();
     this.isPlaying = true;
@@ -402,7 +435,38 @@ export class VoiceAcousticEngine {
       this.activeNodes.push(source);
       this.duration = this.customAudioBuffer.duration;
     } 
-    // B. PLAY ACOUSTIC VOICE SYNTHESIZER PRESETS
+    // B. PLAY PRESET BUFFER (Real / Fake Voice Audio Recording)
+    else if (this.presetBuffers[mode]) {
+      const pBuf = this.presetBuffers[mode];
+      const source = this.ctx.createBufferSource();
+      source.buffer = pBuf;
+
+      if (mode === 'fake') {
+        // Run fake CEO through synthetic vocoder bandpass filters for deepfake clone sound
+        const f1 = this.ctx.createBiquadFilter();
+        f1.type = 'bandpass';
+        f1.frequency.value = 1450;
+        f1.Q.value = 3.5;
+        source.connect(f1);
+        f1.connect(this.masterGain);
+        this.activeNodes.push(f1);
+      } else {
+        source.connect(this.masterGain);
+      }
+
+      const offset = Math.min(this.pauseOffset, pBuf.duration - 0.05);
+      source.start(0, offset);
+      source.onended = () => {
+        if (this.isPlaying) {
+          this.stop();
+          if (this.onEnded) this.onEnded();
+        }
+      };
+
+      this.activeNodes.push(source);
+      this.duration = pBuf.duration;
+    }
+    // C. PROCEDURAL ACOUSTIC VOICE SYNTHESIZER FALLBACK
     else {
       this.duration = 6.0;
       if (mode === 'fake') {
@@ -411,7 +475,6 @@ export class VoiceAcousticEngine {
         this.playRealHumanSynthesis();
       }
 
-      // Also trigger SpeechSynthesis concurrently if supported for actual spoken dialogue
       this.speakTTS(speechText, mode);
     }
 

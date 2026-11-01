@@ -30,6 +30,7 @@ export default function ScanBayVehicle() {
   const [cvScanProgress, setCvScanProgress] = useState(100);
   const [cvCustomResult, setCvCustomResult] = useState(null);
   const [cvError, setCvError] = useState(null);
+  const [isCvDragging, setIsCvDragging] = useState(false);
   const cvFileInputRef = useRef(null);
 
   const CV_STEPS = [
@@ -47,11 +48,27 @@ export default function ScanBayVehicle() {
     runCvScanSimulation(type === 'failure');
   };
 
-  const handleCvFileUpload = async (e) => {
-    const file = e.target.files?.[0];
+  const processCvFile = async (file) => {
     if (!file) return;
+
+    // Strict validation: Only PDF and Word DOCX allowed
+    const fileName = (file.name || '').toLowerCase();
+    const isPdf = file.type === 'application/pdf' || fileName.endsWith('.pdf');
+    const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                   file.type === 'application/msword' || 
+                   fileName.endsWith('.docx') || fileName.endsWith('.doc');
+
+    if (!isPdf && !isDocx) {
+      setCvFile(null);
+      setCvCustomResult(null);
+      setCvScanning(false);
+      setCvError(`Invalid file format "${file.name}". The CV detector strictly accepts only standard PDF (.pdf) or Word (.docx) documents. Non-document files cannot be ranked.`);
+      return;
+    }
+
     setCvFile(file);
     setCvError(null);
+    setCvCustomResult(null);
     setCvScanning(true);
     setCvScanProgress(0);
     setCvScanStep(0);
@@ -88,7 +105,26 @@ export default function ScanBayVehicle() {
       clearInterval(stepTimer);
       clearInterval(progressTimer);
       setCvScanning(false);
-      setCvError('Could not parse document structure. Please upload a standard PDF or DOCX.');
+      setCvCustomResult(null);
+      setCvError(err.message || 'Could not parse document structure. Please upload a standard PDF or DOCX.');
+    }
+  };
+
+  const handleCvFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processCvFile(file);
+    }
+    // reset input so re-selecting same file triggers change
+    if (e.target) e.target.value = '';
+  };
+
+  const handleCvFileDrop = async (e) => {
+    e.preventDefault();
+    setIsCvDragging(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) {
+      await processCvFile(file);
     }
   };
 
@@ -387,19 +423,26 @@ export default function ScanBayVehicle() {
               {/* Upload Dropzone for Real Custom CV */}
               <div 
                 onClick={() => cvFileInputRef.current?.click()}
-                className="p-3.5 rounded-2xl bg-slate-950/80 border border-dashed border-cyan-500/30 hover:border-cyan-400 text-center cursor-pointer transition-all duration-300 group mb-4 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)]"
+                onDragOver={(e) => { e.preventDefault(); setIsCvDragging(true); }}
+                onDragLeave={(e) => { e.preventDefault(); setIsCvDragging(false); }}
+                onDrop={handleCvFileDrop}
+                className={`p-3.5 rounded-2xl border border-dashed text-center cursor-pointer transition-all duration-300 group mb-4 ${
+                  isCvDragging
+                    ? 'border-cyan-400 bg-cyan-950/60 shadow-[0_0_25px_rgba(0,240,255,0.3)] scale-[1.01]'
+                    : 'bg-slate-950/80 border-cyan-500/30 hover:border-cyan-400 hover:shadow-[0_0_20px_rgba(0,240,255,0.15)]'
+                }`}
               >
                 <input 
                   ref={cvFileInputRef} 
                   type="file" 
-                  accept=".pdf,.docx,.txt" 
+                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" 
                   onChange={handleCvFileUpload} 
                   className="hidden" 
                 />
                 <div className="flex items-center justify-center gap-2.5">
                   <Upload className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
                   <span className="text-xs text-slate-300 font-sans font-medium">
-                    {cvFile ? `Uploaded: ${cvFile.name}` : 'Upload your CV / Resume (PDF, DOCX, or TXT for Real Analysis)'}
+                    {cvFile ? `Uploaded: ${cvFile.name}` : 'Upload or Drag & Drop CV (Strictly PDF or Word DOCX only)'}
                   </span>
                   <span className="text-[10px] font-mono text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-lg bg-cyan-950/40">
                     Deep Scan
@@ -407,15 +450,24 @@ export default function ScanBayVehicle() {
                 </div>
               </div>
 
-              {cvError && (
-                <div className="p-3 mb-4 rounded-xl bg-red-950/60 border border-red-500/50 text-red-300 text-xs font-mono flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
-                  <span>{cvError}</span>
+              {/* Document Validation Error State */}
+              {cvError ? (
+                <div className="p-4 rounded-2xl border bg-red-950/60 border-red-500/60 mb-4 flex items-start gap-3 shadow-lg">
+                  <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-red-400 block">
+                      DOCUMENT REJECTED / INVALID FORMAT
+                    </span>
+                    <p className="text-xs text-red-200 font-sans leading-relaxed">
+                      {cvError}
+                    </p>
+                    <p className="text-[11px] font-mono text-slate-400 pt-1">
+                      Please upload a genuine PDF (.pdf) or Word (.docx) document to execute heuristic candidate verification.
+                    </p>
+                  </div>
                 </div>
-              )}
-
-              {/* Active Multi-Stage Search Live Terminal */}
-              {cvScanning ? (
+              ) : cvScanning ? (
+                /* Active Multi-Stage Search Live Terminal */
                 <div className="p-4 rounded-2xl bg-slate-950 border border-cyan-500/40 space-y-2.5 mb-4 shadow-lg">
                   <div className="flex items-center justify-between text-xs font-mono text-cyan-300">
                     <span className="flex items-center gap-2">
@@ -475,8 +527,8 @@ export default function ScanBayVehicle() {
                 </div>
               )}
 
-              {/* Dynamic Finding Pills if real threats found */}
-              {cvCustomResult?.findings?.length > 0 && (
+              {/* Dynamic Finding Pills if real threats found (and no error) */}
+              {!cvError && cvCustomResult?.findings?.length > 0 && (
                 <div className="mb-4 space-y-1.5">
                   {cvCustomResult.findings.slice(0, 3).map((f, idx) => {
                     const isPass = f.risk === 'pass';
@@ -499,23 +551,25 @@ export default function ScanBayVehicle() {
                 </div>
               )}
 
-              {/* Forensic Signal Verification Points */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] font-mono">
-                {activeCvMetrics.map((m, idx) => {
-                  const isRed = m.risk === 'high';
-                  const isEmerald = m.risk === 'pass';
-                  return (
-                    <div key={idx} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between min-w-0">
-                      <span className="text-slate-400 shrink-0 mr-2">{m.label}:</span>
-                      <span className={`font-bold truncate text-right ${
-                        isRed ? 'text-red-400' : (isEmerald ? 'text-emerald-400' : 'text-amber-300')
-                      }`} title={m.value}>
-                        {m.value}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              {/* Forensic Signal Verification Points (only if no error) */}
+              {!cvError && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] font-mono">
+                  {activeCvMetrics.map((m, idx) => {
+                    const isRed = m.risk === 'high';
+                    const isEmerald = m.risk === 'pass';
+                    return (
+                      <div key={idx} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between min-w-0">
+                        <span className="text-slate-400 shrink-0 mr-2">{m.label}:</span>
+                        <span className={`font-bold truncate text-right ${
+                          isRed ? 'text-red-400' : (isEmerald ? 'text-emerald-400' : 'text-amber-300')
+                        }`} title={m.value}>
+                          {m.value}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
             </div>
 
