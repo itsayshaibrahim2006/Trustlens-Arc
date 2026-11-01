@@ -207,6 +207,4 @@ TrustLens/
 This project is licensed under the [MIT License](LICENSE).
 
 
-## DEPLOYED LIVE LINK ##
-trustlens-arc-84250.firebaseapp.com
-trustlens-arc-84250.firebaseapp.com
+[View Live Project](https://web.app)
