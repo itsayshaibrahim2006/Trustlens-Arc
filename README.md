@@ -49,11 +49,19 @@ flowchart TD
 ---
 
 ### 2. 🧬 Biometric Deepfakes Suite (`BiometricDeepfakes.jsx`)
-- **Neural Face & Video Synthesis Detector**:
-  - Drag-and-drop ingestion supporting custom images, deepfake video feeds, and high-res portraits.
-  - Multi-tier biometric verification decomposing temporal frame coherence, facial landmark micro-tremors, and diffusion raster artifacts.
-  - **Unmistakable 0–100% Verdict Display**: Clear verdict card showing exact probabilities (e.g., `97.4% FAKE (AI Generated)` vs `98.2% REAL (Camera Photo)`).
-  - Dynamic **Emerald-to-Crimson gradient bar** with real-time risk markers.
+- **Multi-Stream Hybrid Neural Image & Face Forensics Engine**:
+  - Implements the cutting-edge multi-stream architecture designed to counter modern generative diffusion models (Flux, Midjourney v6, SD 3) and face-swaps without succumbing to the "Resize & Compress Trap".
+  - **Stage 1 — Fast-Path Provenance & Dual-Path Ingestion**:
+    - Cryptographic C2PA manifest & EXIF hardware sensor parsing detecting camera models (Canon, Sony, Nikon) vs generative software signatures (Midjourney, ComfyUI, AUTOMATIC1111).
+    - Unresized native patch extraction ($64 \times 64$) preserving high-frequency noise residuals in flat regions (skin, skies, bokeh) destroyed by standard bilinear resizing.
+  - **Stage 2 — Parallel Tri-Stream Feature Extraction**:
+    - **Stream A (High-Frequency & Noise Forensics)**: 5x5 Spatial Rich Model (SRM) high-pass convolution filters + Neighboring Pixel Relationships (NPR) horizontal/vertical gradient differencing.
+    - **Stream B (Semantic & Structural Priors)**: Vision-Language representation priors (CLIP / OpenCLIP) for scene composition and bilateral structural symmetry.
+    - **Stream C (Facial Manipulation Branch)**: Self-Blended Image (SBI) boundary blending detection and Face X-Ray seam segmentation.
+  - **Stage 3 — Compression-Aware Gated Fusion & Localization**:
+    - Dynamic gating network that scales stream weights depending on JPEG compression artifacts.
+    - **Interactive Pixel-Level Forgery Heatmap**: Toggable overlay visualizing exact manipulated regions (inpainting and face boundaries) directly over the canvas.
+  - **Verdict Telemetry**: Full probabilistic breakdown with 0–100% calibrated score, detailed Stream A/B/C metrics, and modern 2026 generator presets (*Midjourney v6 / Flux*, *Sora / FaceSwap*, *Canon EOS R5*).
 - **3D Mini Robot Sentinel (`InteractiveRobotSentinel.jsx`)**:
   - Full 360° rotatable Three.js mascot with inertia damping and mouse-following physics.
   - Dynamic status illumination that reacts in real-time to active threat scans.

@@ -24,7 +24,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment files
+# Firebase
+.firebase/
+.firebase
 .env
 .env.*
 !.env.example

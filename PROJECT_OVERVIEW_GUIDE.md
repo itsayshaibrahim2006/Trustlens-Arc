@@ -90,7 +90,18 @@ TrustLens Arc runs its **entire detection engine directly on your own device (cl
   - Detects **IDN Homograph attacks** (scammers replacing English letters with identical-looking Russian/Cyrillic characters).
   - Checks for high-risk top-level domains (`.tk`, `.ml`, `.ru`, `.xyz`) and bare IP addresses.
 
-### 4️⃣ Autonomous Scan Bay & 3D Astro-Van
+### 4️⃣ Biometric Deepfakes & Multi-Stream Image Forensics
+- **What it does**: Detects modern generative diffusion images (Midjourney v6, Flux, Stable Diffusion 3) and face-swaps that defeat standard simple AI checkers.
+- **The Core Scientific Problem**: Standard detectors resize high-res images to $224 \times 224$, which accidentally wipes out pixel-level noise artifacts (the "Resize & Compress Trap").
+- **How TrustLens Solves It (Multi-Stream Hybrid Architecture)**:
+  - **Fast-Path C2PA & EXIF Gate**: Directly inspects image headers for cryptographic provenance and camera hardware signatures (Canon, Sony) vs generative AI tools (Midjourney, ComfyUI).
+  - **Unresized Texture Patches**: Slices native-resolution $64 \times 64$ patches to keep forensic noise intact.
+  - **Stream A (Noise Forensics)**: 5x5 Spatial Rich Model (SRM) high-pass convolution filters + Neighboring Pixel Relationships (NPR) gradient differencing.
+  - **Stream B (Semantic Vision Priors)**: Vision-Language representation priors (CLIP) verifying lighting consistency and facial symmetry.
+  - **Stream C (Facial Manipulation)**: Self-Blended Image (SBI) boundary blending detection and Face X-Ray seam segmentation.
+  - **Dynamic Gated Fusion & Forgery Heatmap**: Dynamically balances the streams according to image compression levels and renders an interactive pixel-level forgery heatmap showing the exact manipulated area.
+
+### 5️⃣ Autonomous Scan Bay & 3D Astro-Van
 - **What it does**: A high-tech mission control center where you can visually see the vehicle's radar dish lock onto threats.
 - **Visual Feedback**: The plasma laser fire changes dynamically:
   - 🔴 **Fires Red Plasma Bolts** when a scam or malicious phishing link is detected.
@@ -147,8 +158,9 @@ You can now edit any file in the `src/` folder and see your changes update insta
 | **Primary Languages** | JavaScript (ES6+), HTML5, CSS3 |
 | **Frameworks** | React 18, Vite, Tailwind CSS |
 | **3D & Graphics** | Three.js WebGL, HTML5 Canvas 2D |
-| **Forensic Engines** | PDF.js (document parsing), jsQR (matrix decoding), Web Audio API (harmonics) |
-| **Backend & Architecture** | 100% Client-Side Engine (Zero PII data leakage, &lt; 300ms speed) |
+| **Forensic Engines** | PDF.js (document parsing), jsQR (matrix decoding), Web Audio API (harmonics), Multi-Stream SRM+NPR+CLIP Image Forensics |
+| **Backend & Architecture** | 100% Client-Side Engine + PyTorch Reference Model (`models/hybrid_detector.py`) |
 | **Cloud Hosting** | Firebase Hosting (Google Cloud Edge CDN) |
 | **Live Web App** | [https://trustlensarc.web.app](https://trustlensarc.web.app) |
 | **Live Pitch Deck** | [https://trustlensarc.web.app/presentation.html](https://trustlensarc.web.app/presentation.html) |
+

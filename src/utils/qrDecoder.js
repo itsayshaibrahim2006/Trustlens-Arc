@@ -73,3 +73,4 @@ export async function decodeQrImage(file) {
     reader.readAsDataURL(file);
   });
 }
+
