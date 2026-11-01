@@ -210,3 +210,4 @@ if __name__ == "__main__":
     print(f"Gating Weights (Forensic vs Semantic): {weights.detach().cpu().numpy()}")
     print(f"Predicted Probabilities (Real vs Fake): {probs.detach().cpu().numpy()}")
     print("Multi-Stream Architecture verified successfully!")
+
