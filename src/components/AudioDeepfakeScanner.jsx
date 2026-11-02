@@ -42,25 +42,25 @@ const AUDIO_SAMPLES = {
   },
   AUTHENTIC: {
     id: 'authentic-human',
-    name: 'Authentic Executive Conference Call (Human Control)',
-    speaker: 'David Sterling (Verified Natural Voice)',
-    duration: '00:32',
-    syntheticProb: 1.4,
+    name: 'Authentic Executive Hearing (Real Human Voice)',
+    speaker: 'Sundar Pichai (Google CEO — Verified Natural Voice)',
+    duration: '00:07',
+    syntheticProb: 3.0,
     status: 'AUTHENTIC HUMAN BIOMETRICS VERIFIED',
     isThreat: false,
-    transcript: '"Good morning everyone. Let us review the Q3 infrastructure capital expenditure report. Please make sure all compliance forms go through standard dual-key authorization before end of month."',
+    transcript: '"Thank you for the opportunity to be here today. I joined Google 15 years ago and have been privileged to serve as CEO for the past three years..."',
     metrics: {
-      pitchJitter: '1.86%',
-      pitchJitterStatus: 'Normal Human Vocal Dynamics',
-      formantShimmer: '1.45 dB',
+      pitchJitter: '10.29%',
+      pitchJitterStatus: 'Normal Human Vocal Dynamics (Organic Jitter)',
+      formantShimmer: '20.63%',
       formantShimmerStatus: 'Natural Biological Glottal Variation',
       noiseFloor: '-58 dB (Natural Room Reverberation)',
-      vocalTractPhase: 'Coherent Biological Harmonics'
+      vocalTractPhase: 'Coherent Biological Harmonics (118 Hz F0)'
     },
     artifacts: [
       'Natural micro-vocal tremor present across all vowel formants',
       'Natural glottal aspiration and atmospheric room reverberation',
-      'Consistent physical vocal tract resonance across sentence transitions'
+      'Consistent physical vocal tract resonance without synthetic pitch lock'
     ]
   }
 };
@@ -74,6 +74,7 @@ export default function AudioDeepfakeScanner() {
   const audioCtxRef = useRef(null);
   const oscRef = useRef(null);
   const gainRef = useRef(null);
+  const audioElemRef = useRef(null);
   const animFrameRef = useRef(null);
 
   const sample = AUDIO_SAMPLES[selectedSampleKey];
@@ -168,36 +169,54 @@ export default function AudioDeepfakeScanner() {
     };
   }, [isPlaying, selectedSampleKey]);
 
-  // Handle Play / Pause using Web Audio API procedural sound
+  // Handle Play / Pause using authentic audio files with procedural fallback
   const togglePlay = () => {
     if (!isPlaying) {
       try {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!audioCtxRef.current) {
-          audioCtxRef.current = new AudioCtx();
+        if (!audioElemRef.current) {
+          audioElemRef.current = new Audio();
         }
-        const ctx = audioCtxRef.current;
-        if (ctx.state === 'suspended') ctx.resume();
+        const audio = audioElemRef.current;
+        const targetSrc = selectedSampleKey === 'AUTHENTIC' ? '/audio/ceo_real_voice.wav' : '/audio/ceo_fake_voice.wav';
+        if (audio.src !== window.location.origin + targetSrc) {
+          audio.src = targetSrc;
+        }
+        audio.muted = isMuted;
 
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
+        audio.ontimeupdate = () => {
+          setCurrentTime(Math.floor(audio.currentTime));
+        };
 
-        // Modulate frequency to mimic voice tone
-        osc.type = selectedSampleKey === 'SYNTHETIC' ? 'sawtooth' : 'sine';
-        osc.frequency.setValueAtTime(selectedSampleKey === 'SYNTHETIC' ? 140 : 125, ctx.currentTime);
+        audio.onended = () => {
+          setIsPlaying(false);
+          setCurrentTime(0);
+        };
 
-        gain.gain.setValueAtTime(isMuted ? 0 : 0.05, ctx.currentTime);
+        audio.play().catch(err => {
+          console.warn('HTML5 audio play blocked, falling back to Web Audio synthesis:', err);
+          // Fallback to Web Audio osc if user gesture was interrupted
+          try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
+            const ctx = audioCtxRef.current;
+            if (ctx.state === 'suspended') ctx.resume();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = selectedSampleKey === 'SYNTHETIC' ? 'sawtooth' : 'sine';
+            osc.frequency.setValueAtTime(selectedSampleKey === 'SYNTHETIC' ? 140 : 125, ctx.currentTime);
+            gain.gain.setValueAtTime(isMuted ? 0 : 0.05, ctx.currentTime);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            oscRef.current = osc;
+            gainRef.current = gain;
+          } catch (e) {}
+        });
 
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-
-        oscRef.current = osc;
-        gainRef.current = gain;
+        setIsPlaying(true);
       } catch (err) {
-        console.warn('AudioContext not allowed or supported', err);
+        console.warn('Audio play error:', err);
       }
-      setIsPlaying(true);
     } else {
       stopAudio();
       setIsPlaying(false);
@@ -205,6 +224,10 @@ export default function AudioDeepfakeScanner() {
   };
 
   const stopAudio = () => {
+    if (audioElemRef.current) {
+      audioElemRef.current.pause();
+      audioElemRef.current.currentTime = 0;
+    }
     if (oscRef.current) {
       try {
         oscRef.current.stop();
@@ -213,6 +236,12 @@ export default function AudioDeepfakeScanner() {
       oscRef.current = null;
     }
   };
+
+  useEffect(() => {
+    if (audioElemRef.current) {
+      audioElemRef.current.muted = isMuted;
+    }
+  }, [isMuted]);
 
   useEffect(() => {
     return () => stopAudio();

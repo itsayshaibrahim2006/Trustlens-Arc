@@ -117,18 +117,18 @@ export default function ReactiveTelemetry() {
       speech: "Hello finance team, I need an urgent wire transfer of four hundred eighty thousand dollars completed before the market closes today."
     },
     real: {
-      name: "CEO-Real-Board-Call.wav",
-      percentage: 4,
+      name: "Sundar-Pichai-Congressional-Hearing.wav",
+      percentage: 3,
       title: "Real Human Voice Verified",
       chip: "✨ VERIFIED • AUTHENTIC HUMAN",
-      explanation: "Natural vocal cord micro-vibrations, dynamic pitch inflection (1.45% jitter), and authentic breathing pauses confirmed. Safe to proceed.",
-      pitchText: "Dynamic Human Pitch (1.45% Jitter)",
-      humanMatch: "96% High",
+      explanation: "Natural vocal cord micro-vibrations, dynamic pitch inflection (±27.4Hz spread), and authentic glottal breathing pauses confirmed. Safe to proceed.",
+      pitchText: "Dynamic Human Pitch (10.29% Jitter)",
+      humanMatch: "97% High",
       breathMatch: "Natural Dynamics",
       jitterText: "Organic Vibrato",
-      baseHz: 118.2,
-      duration: 6.5,
-      speech: "Good morning everyone, thanks for joining the quarterly review call. Let's walk through the product roadmap together."
+      baseHz: 118.3,
+      duration: 6.8,
+      speech: "Thank you for the opportunity to be here today. I joined Google 15 years ago and have been privileged to serve as CEO for the past three years..."
     },
     mic: {
       name: "Live-Microphone-Input.wav",
