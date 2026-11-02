@@ -571,6 +571,19 @@ export default function ScanBayVehicle() {
                 </div>
               )}
 
+              {/* Categorization Basis Footer */}
+              {!cvError && (
+                <div className="mt-3.5 pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-[10px] font-mono text-slate-400 gap-2">
+                  <span className="flex items-center gap-1.5 text-cyan-300 font-semibold">
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                    Categorization Basis: 5-Pillar OSINT Verification
+                  </span>
+                  <span className="text-slate-400">
+                    GitHub Live API • Timeline Sanity • Skill Depth • Contact Integrity • Document Provenance
+                  </span>
+                </div>
+              )}
+
             </div>
 
             {/* =====================================================================

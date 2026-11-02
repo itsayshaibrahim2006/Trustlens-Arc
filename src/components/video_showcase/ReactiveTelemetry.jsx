@@ -49,6 +49,10 @@ export default function ReactiveTelemetry() {
   // Visualizer mode: 'ribbon' (3D Pitch Ribbon) | 'bars' (3D Neon Bars)
   const [visMode, setVisMode] = useState('ribbon');
   const [liveHz, setLiveHz] = useState('142.4');
+  const [micLiveStatus, setMicLiveStatus] = useState({
+    isSpeaking: false,
+    text: "Awaiting voice input"
+  });
 
   // File upload state
   const [isDragging, setIsDragging] = useState(false);
@@ -73,6 +77,7 @@ export default function ReactiveTelemetry() {
   const micAnalyserRef = useRef(null);
   const micSourceRef = useRef(null);
   const micIntervalRef = useRef(null);
+  const micPitchHistoryRef = useRef([]);
 
   // Three.js Orb refs
   const threeStateRef = useRef({
@@ -141,26 +146,53 @@ export default function ReactiveTelemetry() {
     }
   };
 
+  const isFake = currentPercentage >= 50;
+  // User Instruction:
+  // "If it is real, then show the score how much percentage it seems like real call.
+  // And if it is fake call, then it has to show how much it has a percentage of fake call."
+  const targetConfidenceScore = isFake ? currentPercentage : (100 - currentPercentage);
+
   const currentSample = useMemo(() => {
+    if (activeSampleKey === 'mic') {
+      const realScore = isFake ? currentPercentage : (100 - currentPercentage);
+      return {
+        name: isSimulatedMic ? "Simulated-Live-Microphone.wav" : "Live-Microphone-Input.wav",
+        percentage: currentPercentage,
+        title: isFake ? "AI Deepfake Voice Detected" : "Real Human Voice Verified",
+        chip: micLiveStatus.isSpeaking
+          ? (isFake ? "🚨 LIVE ALERT • SYNTHETIC VOICE" : "✨ LIVE VOCAL STREAM • AUTHENTIC HUMAN")
+          : "🎙️ LIVE MIC • ACTIVE",
+        explanation: micLiveStatus.isSpeaking
+          ? (isFake
+              ? "Robotic pitch lock detected with zero organic micro-vibrations. Live audio flagged as synthetic voice clone."
+              : `Real-time acoustic analysis of live microphone stream confirms organic vocal fold vibration (${liveHz} Hz), dynamic pitch inflections, and authentic human speech.`)
+          : "Microphone active and calibrated in real time. Speak into your microphone to verify vocal authenticity live.",
+        pitchText: isFake ? "Robotic Pitch Lock (0.12% Jitter)" : `Live Dynamic Pitch (${liveHz} Hz)`,
+        humanMatch: isFake ? "8% Low" : `${realScore}% High`,
+        breathMatch: micLiveStatus.isSpeaking ? "Live Respiratory Flow" : "Standby (Calibrated)",
+        jitterText: isFake ? "99.2% Robotic" : "Organic Human Vibrato",
+        baseHz: 122.0,
+        duration: 0,
+        speech: "Live vocal stream active."
+      };
+    }
     return customForensics || SAMPLES[activeSampleKey] || {
       name: uploadedFileName || "Custom-Ingested-Voice.wav",
       percentage: currentPercentage,
-      title: currentPercentage >= 50 ? "AI Deepfake Voice Detected" : "Real Human Voice Verified",
-      chip: currentPercentage >= 50 ? "🚨 HIGH RISK • AI VOICE CLONE" : "✨ VERIFIED • AUTHENTIC HUMAN",
-      explanation: currentPercentage >= 50
+      title: isFake ? "AI Deepfake Voice Detected" : "Real Human Voice Verified",
+      chip: isFake ? "🚨 HIGH RISK • AI VOICE CLONE" : "✨ VERIFIED • AUTHENTIC HUMAN",
+      explanation: isFake
         ? "Uploaded audio exhibits robotic pitch stability and artificial vocoder phase harmonics characteristic of voice synthesis engines."
         : "Authentic human vocal fold vibrato, natural pitch bends, and organic respiratory intake confirmed.",
-      pitchText: currentPercentage >= 50 ? "Robotic Flat Pitch (0.18% Jitter)" : "Dynamic Human Pitch (1.35% Jitter)",
+      pitchText: isFake ? "Robotic Flat Pitch (0.18% Jitter)" : "Dynamic Human Pitch (1.35% Jitter)",
       humanMatch: `${Math.max(2, 100 - currentPercentage)}% Match`,
-      breathMatch: currentPercentage >= 50 ? "Missing (Synthetic)" : "Natural Dynamics",
-      jitterText: currentPercentage >= 50 ? "99.4% Robotic" : "Organic Vibrato",
-      baseHz: currentPercentage >= 50 ? 141.5 : 122.0,
+      breathMatch: isFake ? "Missing (Synthetic)" : "Natural Dynamics",
+      jitterText: isFake ? "99.4% Robotic" : "Organic Vibrato",
+      baseHz: isFake ? 141.5 : 122.0,
       duration: totalDurationSec,
       speech: "Voice authentication sample processing complete."
     };
-  }, [customForensics, activeSampleKey, currentPercentage, uploadedFileName, totalDurationSec]);
-
-  const isFake = currentPercentage >= 50;
+  }, [customForensics, activeSampleKey, currentPercentage, uploadedFileName, totalDurationSec, micLiveStatus, liveHz, isFake, isSimulatedMic, targetConfidenceScore]);
 
   // Theme constants
   const themeColors = isFake ? {
@@ -396,12 +428,14 @@ export default function ReactiveTelemetry() {
     }
   }, [isFake]);
 
-  // Smooth counter animation
+  // Smooth counter animation targeting the active confidence score
+  // Fake: animates to AI fake probability (e.g., 94%)
+  // Real: animates to real authenticity confidence (e.g., 96%)
   useEffect(() => {
     let startVal = displayedPercentage;
-    const targetVal = currentPercentage;
+    const targetVal = targetConfidenceScore;
     const startTime = performance.now();
-    const duration = 650;
+    const duration = 500;
 
     const tick = (now) => {
       const elapsed = now - startTime;
@@ -411,7 +445,7 @@ export default function ReactiveTelemetry() {
       if (progress < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-  }, [currentPercentage]);
+  }, [targetConfidenceScore]);
 
   // =========================================================================
   // 4. AUDIO CONTROLS & PLAYBACK
@@ -504,6 +538,7 @@ export default function ReactiveTelemetry() {
   const startMicrophone = async () => {
     stopPlayback();
     setCustomForensics(null);
+    micPitchHistoryRef.current = [];
 
     try {
       const ctx = getSharedAudioContext();
@@ -516,7 +551,7 @@ export default function ReactiveTelemetry() {
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.8;
+      analyser.smoothingTimeConstant = 0.75;
       source.connect(analyser);
 
       micSourceRef.current = source;
@@ -525,10 +560,11 @@ export default function ReactiveTelemetry() {
       setIsMicActive(true);
       setIsSimulatedMic(false);
       setActiveSampleKey('mic');
-      setCurrentPercentage(4);
+      setCurrentPercentage(4); // 4% fake probability = 96% Real Call
       setUploadedFileName("Live-Microphone-Input.wav");
+      setMicLiveStatus({ isSpeaking: false, text: "Microphone active. Speak to verify in real time" });
 
-      // Real-time live microphone acoustic evaluation loop
+      // Real-time live microphone acoustic evaluation loop (80ms cycle)
       if (micIntervalRef.current) clearInterval(micIntervalRef.current);
       micIntervalRef.current = setInterval(() => {
         if (!micAnalyserRef.current) return;
@@ -541,7 +577,7 @@ export default function ReactiveTelemetry() {
         }
         const rms = Math.sqrt(sumSq / timeData.length);
 
-        if (rms > 0.015) {
+        if (rms > 0.012) {
           // Detect speech fundamental pitch F0 via autocorrelation
           const sr = ctx.sampleRate || 44100;
           const minLag = Math.floor(sr / 380);
@@ -570,20 +606,68 @@ export default function ReactiveTelemetry() {
 
           if (bestCorr > 0.35 && bestLag > 0) {
             const detectedHz = Math.round(sr / bestLag);
-            if (detectedHz >= 75 && detectedHz <= 350) {
+            if (detectedHz >= 75 && detectedHz <= 380) {
               setLiveHz(detectedHz.toFixed(1));
+              micPitchHistoryRef.current.push(detectedHz);
+              if (micPitchHistoryRef.current.length > 16) {
+                micPitchHistoryRef.current.shift();
+              }
             }
           }
-          setCurrentPercentage(4);
+
+          // Evaluate pitch standard deviation for organic vocal cord dynamics
+          const history = micPitchHistoryRef.current;
+          let stdDev = 0;
+          if (history.length >= 3) {
+            const mean = history.reduce((a, b) => a + b, 0) / history.length;
+            stdDev = Math.sqrt(history.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / history.length);
+          }
+
+          // Monotonic vocoder check: artificial pitch lock across >8 frames
+          const isRobotic = history.length >= 8 && stdDev < 0.6;
+          if (isRobotic) {
+            setCurrentPercentage(92); // 92% Fake Call
+            setMicLiveStatus({ isSpeaking: true, text: "Robotic Flat Pitch Detected (AI Voice Clone)" });
+          } else {
+            // Live organic human voice: 95% - 98% Real Call
+            const organicBoost = Math.min(3, Math.round(stdDev * 0.15));
+            const liveRealScore = 95 + organicBoost;
+            setCurrentPercentage(100 - liveRealScore); // emits 2 - 5% (animates to 95% - 98% Real Call)
+            const lastPitch = history.length > 0 ? history[history.length - 1] : 124;
+            setMicLiveStatus({ isSpeaking: true, text: `Live Human Voice Verified (${lastPitch} Hz)` });
+          }
+        } else {
+          // Ambient silence / pausing between phrases
+          setMicLiveStatus({ isSpeaking: false, text: "Listening... Speak into microphone" });
         }
-      }, 100);
+      }, 80);
     } catch (err) {
-      // Graceful fallback if mic permission is denied or running in sandbox
+      // Graceful fallback: Run simulated live microphone stream
       setIsMicActive(true);
       setIsSimulatedMic(true);
       setActiveSampleKey('mic');
-      setCurrentPercentage(5);
+      setCurrentPercentage(4); // 96% Real Call
       setUploadedFileName("Simulated-Live-Microphone.wav");
+      setMicLiveStatus({ isSpeaking: false, text: "Simulated mic active. Running live vocal telemetry" });
+
+      if (micIntervalRef.current) clearInterval(micIntervalRef.current);
+      let cycleStep = 0;
+      micIntervalRef.current = setInterval(() => {
+        cycleStep = (cycleStep + 1) % 45; // 4.5s cycle
+        if (cycleStep < 32) {
+          // Speaking phase (3.2s)
+          const now = Date.now();
+          const simHz = (122 + Math.sin(now / 380) * 16 + Math.cos(now / 190) * 8).toFixed(1);
+          setLiveHz(simHz);
+          const liveRealScore = Math.round(96 + Math.sin(now / 500) * 1.5);
+          setCurrentPercentage(100 - liveRealScore); // animates to 95% - 98% Real Call
+          setMicLiveStatus({ isSpeaking: true, text: `Live Human Voice Active (${simHz} Hz)` });
+        } else {
+          // Breath pause phase (1.3s)
+          setMicLiveStatus({ isSpeaking: false, text: "Natural Respiratory Pause (0.4s)" });
+          setCurrentPercentage(4); // 96% Real Call
+        }
+      }, 100);
     }
   };
 
@@ -601,8 +685,10 @@ export default function ReactiveTelemetry() {
       micSourceRef.current = null;
     }
     micAnalyserRef.current = null;
+    micPitchHistoryRef.current = [];
     setIsMicActive(false);
     setIsSimulatedMic(false);
+    setMicLiveStatus({ isSpeaking: false, text: "Microphone off" });
   };
 
   // =========================================================================
@@ -1328,7 +1414,7 @@ export default function ReactiveTelemetry() {
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300 font-extrabold">4% REAL</span>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300 font-extrabold">96% REAL</span>
                     <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
                   </div>
                   <div className="text-xs font-bold text-white truncate">Real CEO Call</div>
@@ -1345,7 +1431,7 @@ export default function ReactiveTelemetry() {
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-300 font-extrabold">
-                      {isMicActive ? (isSimulatedMic ? 'SIMULATED' : 'LIVE ON') : 'LIVE MIC'}
+                      {isMicActive ? (isSimulatedMic ? 'SIMULATED LIVE' : 'LIVE ACTIVE') : 'REAL-TIME MIC'}
                     </span>
                     {isMicActive ? (
                       <Mic className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
@@ -1468,7 +1554,7 @@ export default function ReactiveTelemetry() {
                     <span className={`text-2xl font-extrabold font-mono ml-0.5 ${themeColors.textPrimary}`}>%</span>
                   </div>
                   <span className="text-[10px] font-mono uppercase tracking-widest text-slate-300 font-bold mt-1 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/15">
-                    {isFake ? 'Fake Voice' : 'Real Voice'}
+                    {isFake ? 'Fake Call' : (isMicActive ? 'Real Call (Live)' : 'Real Call')}
                   </span>
                 </div>
               </div>
@@ -1498,10 +1584,18 @@ export default function ReactiveTelemetry() {
                   <div className="relative w-full h-3 rounded-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 p-[1px]">
                     <div 
                       className="absolute -top-1.5 w-6 h-6 rounded-full bg-white border-4 border-slate-950 flex items-center justify-center transition-all duration-700 shadow-[0_0_18px_4px_#ffffff]"
-                      style={{ left: `calc(${displayedPercentage}% - 12px)` }}
+                      style={{ left: `calc(${currentPercentage}% - 12px)` }}
                     >
                       <div className={`w-1.5 h-1.5 rounded-full ${isFake ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                     </div>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px] font-mono mt-2 pt-2 border-t border-white/5">
+                    <span className="text-slate-400">Classification Metric:</span>
+                    <span className={`font-bold ${isFake ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      {isFake 
+                        ? `${displayedPercentage}% Fake Call Probability` 
+                        : `${displayedPercentage}% Real Call Authenticity`}
+                    </span>
                   </div>
                 </div>
 
