@@ -207,13 +207,10 @@ TrustLens/
 This project is licensed under the [MIT License](LICENSE).
 
 
-## DEMO VIDEO LINK ##
-https://drive.google.com/file/d/13KWlOA2Ul7VcTvudroF0Nw4ORN8efwib/view?usp=drivesdk
+
 
 ## 🚀 TrustLens Arc — Enterprise Multi-Modal Verification Platform
 
-You can access the live application and watch the project demo using the links below:
+You can access the live application using link below
 
 *   🌐 **Live Deployment:** [Launch TrustLens Arc Website](https://web.app)
-*   📺 **Video Overview:** [Watch the Video Explanation](https://google.com)
-
